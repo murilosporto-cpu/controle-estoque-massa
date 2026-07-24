@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Projeção de Estoque — Domino's</title>
+<link rel="icon" type="image/svg+xml" href="logos_svg/DPZ_2025_Logo_Tile_Blue_RGB.svg">
+<script src="xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#f4f6fb; --card:#ffffff; --ink:#1a2332; --muted:#5c6b82;
+    --line:#e2e8f2; --brand:#006491; --brand2:#e31837;
+    --drop:#f8fafc; --drop-line:#c3ccdb; --ok:#1a8a4a; --ok-bg:#e6f6ec;
+    --warn:#b7791f; --warn-bg:#fdf3e2; --shadow:0 6px 24px rgba(20,35,60,.08);
+    --red:#e31837; --red-bg:#fdeaec; --yellow:#b7791f; --yellow-bg:#fdf3e2;
+    --chip:#eef2f9; --chip-ink:#3a4a63;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0e1420; --card:#161f2e; --ink:#e8eef7; --muted:#93a2ba;
+      --line:#26324a; --brand:#3fa9d8; --brand2:#ff5a6e;
+      --drop:#111a28; --drop-line:#33415c; --ok:#4ade80; --ok-bg:#123321;
+      --warn:#f0c674; --warn-bg:#3a2f14; --shadow:0 6px 24px rgba(0,0,0,.35);
+      --red:#ff5a6e; --red-bg:#3a1620; --yellow:#f0c674; --yellow-bg:#3a2f14;
+      --chip:#1e2a3e; --chip-ink:#b7c6dd;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
+       background:var(--bg);color:var(--ink);line-height:1.5;
+       padding:32px 20px 60px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1120px;margin:0 auto}
+  header{text-align:center;margin-bottom:8px}
+  .brand{height:38px;width:auto;margin-bottom:2px}
+  .dark-only{display:none}
+  @media (prefers-color-scheme:dark){ .light-only{display:none} .dark-only{display:inline-block} }
+  .rtile{height:26px;width:auto;flex:0 0 auto;align-self:center}
+  h1{font-size:28px;margin:10px 0 4px;font-weight:750}
+  .sub{color:var(--muted);margin:0 0 28px;font-size:15px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  @media (max-width:720px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;
+        padding:20px;box-shadow:var(--shadow)}
+  .badge{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.6px;
+         text-transform:uppercase;color:#fff;background:var(--brand);
+         padding:3px 10px;border-radius:999px;margin-bottom:12px}
+  .card.two .badge{background:var(--brand2)}
+  .card h2{font-size:17px;margin:0 0 4px;font-weight:700}
+  .card .role{color:var(--muted);font-size:13px;margin:0 0 16px;min-height:34px}
+  .drop{border:2px dashed var(--drop-line);border-radius:12px;background:var(--drop);
+        padding:22px 16px;text-align:center;cursor:pointer;transition:.15s;
+        display:flex;flex-direction:column;align-items:center;gap:8px}
+  .drop:hover{border-color:var(--brand)}
+  .drop.over{border-color:var(--brand);background:color-mix(in srgb,var(--brand) 10%,var(--drop));
+             transform:translateY(-1px)}
+  .drop.filled{border-style:solid;border-color:var(--ok);background:var(--ok-bg)}
+  .drop.mismatch{border-color:var(--warn);background:var(--warn-bg)}
+  .ico{width:38px;height:38px;opacity:.7}
+  .drop.filled .ico,.drop.mismatch .ico{opacity:1}
+  .drop .big{font-weight:650;font-size:15px}
+  .drop .small{font-size:12.5px;color:var(--muted)}
+  .file{font-weight:650;font-size:14px;word-break:break-all;line-height:1.35}
+  .meta{font-size:12px;color:var(--muted)}
+  .flag{font-size:12.5px;font-weight:650;margin-top:2px}
+  .flag.ok{color:var(--ok)} .flag.warn{color:var(--warn)}
+  .clear{margin-top:10px;background:none;border:1px solid var(--line);color:var(--muted);
+         font-size:12px;padding:4px 12px;border-radius:8px;cursor:pointer}
+  .clear:hover{color:var(--ink);border-color:var(--muted)}
+
+  /* ---- Resultados ---- */
+  #results{margin-top:34px;display:none}
+  .rhead{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 16px;margin-bottom:4px}
+  .rhead h2{font-size:22px;margin:0;font-weight:750}
+  .rhead .info{color:var(--muted);font-size:14px}
+  .rbanner{display:none;background:var(--warn-bg);border:1px solid var(--warn);color:var(--warn);
+           padding:11px 14px;border-radius:10px;font-size:13px;margin:8px 0 4px;line-height:1.45}
+  .rbanner b{color:var(--warn)}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin:6px 0 16px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .dot.r{background:var(--red)} .dot.y{background:var(--yellow)} .dot.g{background:var(--ok)}
+  .filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+  .chip{border:1px solid var(--line);background:var(--chip);color:var(--chip-ink);
+        font-size:13px;font-weight:600;padding:6px 13px;border-radius:999px;cursor:pointer;
+        transition:.12s;user-select:none}
+  .chip:hover{border-color:var(--brand)}
+  .chip .n{opacity:.6;font-weight:600;margin-left:5px;font-size:12px}
+  .chip.active{background:var(--brand);border-color:var(--brand);color:#fff}
+  .chip.active .n{opacity:.85}
+  .chip.all.active{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+  .tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:var(--card);
+             box-shadow:var(--shadow)}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:720px}
+  th,td{padding:10px 12px;text-align:center;white-space:nowrap}
+  thead th{background:color-mix(in srgb,var(--brand) 12%,var(--card));color:var(--ink);
+           font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.4px;
+           position:sticky;top:0;cursor:pointer}
+  thead th .ar{opacity:.4;font-size:10px}
+  tbody tr{border-top:1px solid var(--line)}
+  tbody tr:hover{background:color-mix(in srgb,var(--brand) 5%,var(--card))}
+  td.num{text-align:center;font-variant-numeric:tabular-nums}
+  .catpill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;
+           background:var(--chip);color:var(--chip-ink)}
+  .days{font-weight:750;text-align:center;font-variant-numeric:tabular-nums}
+  .days.r{color:var(--red)} .days.y{color:var(--yellow)}
+  .desc{font-weight:600}
+  .empty{padding:40px;text-align:center;color:var(--muted)}
+  input[type=file]{display:none}
+
+  /* ---- Bloco de produção de massas ---- */
+  #producao{display:none;background:var(--card);border:1px solid var(--line);
+            border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:var(--shadow)}
+  .prod-head{display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-start}
+  .prod-head h3{margin:0 0 4px;font-size:18px;font-weight:750}
+  .tag{font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;
+       color:#fff;background:var(--brand2);padding:2px 9px;border-radius:999px;vertical-align:middle}
+  .prod-sub{margin:0;color:var(--muted);font-size:13px;max-width:560px}
+  .prod-controls{display:flex;gap:14px;flex-wrap:wrap}
+  .prod-controls label{display:flex;flex-direction:column;font-size:12px;font-weight:650;
+                       color:var(--muted);gap:4px}
+  .prod-controls input,.prod-controls select{font-size:14px;padding:7px 10px;border-radius:9px;
+       border:1px solid var(--drop-line);background:var(--drop);color:var(--ink);font-family:inherit}
+  .prod-info{margin:14px 0 4px;font-size:13px;color:var(--muted)}
+  .prod-info b{color:var(--ink)}
+  .mrow{border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-top:12px;
+        display:grid;grid-template-columns:150px 1fr auto;gap:16px;align-items:center}
+  @media (max-width:820px){.mrow{grid-template-columns:1fr;gap:10px}}
+  .mrow .mname{font-weight:700;font-size:15px}
+  .mrow .mstock{font-size:11px;color:var(--muted);margin-top:3px}
+  .mrow .mstock .warn{color:var(--warn);font-weight:650}
+  .mstock-in{display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:650;color:var(--muted);margin-top:4px}
+  .mstock-in input{width:110px;font-size:14px;padding:6px 8px;border-radius:8px;
+                   border:1px solid var(--drop-line);background:var(--drop);color:var(--ink);font-family:inherit}
+  .vencs-wrap{display:flex;flex-direction:column;gap:8px}
+  .vcount{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:650;color:var(--muted)}
+  .vcount input{width:56px;text-align:center;font-size:13px;padding:5px 6px;border-radius:8px;
+                border:1px solid var(--drop-line);background:var(--drop);color:var(--ink);font-family:inherit}
+  .novenc{font-size:12px;color:var(--muted);font-style:italic}
+  .vencs{display:flex;flex-wrap:wrap;gap:10px}
+  .venc{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--muted);font-weight:600}
+  .venc .lbl{padding-left:2px}
+  .venc-in{display:flex;gap:5px;align-items:center}
+  .venc input[type=date]{width:140px}
+  .venc input[type=number]{width:70px;text-align:center}
+  .venc input{font-size:13px;padding:6px 8px;border-radius:8px;border:1px solid var(--drop-line);
+              background:var(--drop);color:var(--ink);font-family:inherit}
+  .venc .un{font-size:11px;color:var(--muted)}
+  .mout{text-align:center;min-width:130px}
+  .mout .big{font-size:26px;font-weight:800;line-height:1;color:var(--brand)}
+  .mout .cap{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-top:3px}
+  .mout .ideal{font-size:12px;color:var(--ink);margin-top:6px;font-weight:600}
+  .mout .ideal b{color:var(--brand)}
+  .mout .extra{font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.4}
+  .mout .warn{color:var(--warn);font-weight:650}
+  .prod-note{margin:16px 0 0;font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:12px}
+  .tabs-nav {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--line);
+  }
+  .tab-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 10px 20px;
+    border-bottom: 3px solid transparent;
+    transition: 0.15s;
+  }
+  .tab-btn:hover {
+    color: var(--ink);
+  }
+  .tab-btn.active {
+    color: var(--brand);
+    border-bottom-color: var(--brand);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="tabs-nav">
+    <button class="tab-btn active" data-tab="upload">Carregar Relatórios</button>
+    <button class="tab-btn" data-tab="results" id="tab-results-btn" style="display:none">Ver Projeção</button>
+  </div>
+  <header>
+    <img class="brand light-only" src="logos_svg/DPZ_2025_Logo_CombinationMark_Horizontal_Blue_RGB.svg" alt="Domino's">
+    <img class="brand dark-only" src="logos_svg/DPZ_2025_Logo_CombinationMark_Horizontal_White_RGB.svg" alt="Domino's">
+    <h1>Arraste os relatórios</h1>
+    <p class="sub">Solte o arquivo <b>Item Trend</b> (obrigatório) e o <b>Variance</b> (opcional). A projeção carrega automaticamente.</p>
+  </header>
+
+  <div class="grid" id="dropzone">
+    <div class="card one">
+      <span class="badge">Relatório 1</span>
+      <h2>KEYS Inventory Item Trend</h2>
+      <p class="role">Histórico diário &middot; coluna <b>Ideal Usage</b> (consumo por ficha técnica)</p>
+      <div class="drop" data-key="trend" data-match="item trend">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <div class="big">Arraste o relatório aqui</div>
+        <div class="small">ou clique para selecionar</div>
+      </div>
+      <input type="file" accept=".xlsx" data-input="trend">
+    </div>
+
+    <div class="card two">
+      <span class="badge">Relatório 2 (Opcional)</span>
+      <h2>KEYS Inventory Variance</h2>
+      <p class="role">Foto do inventário &middot; coluna <b>Ending Inventory Qty</b> (estoque final / inicial)</p>
+      <div class="drop" data-key="variance" data-match="variance">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <div class="big">Arraste o relatório aqui</div>
+        <div class="small">ou clique para selecionar</div>
+      </div>
+      <input type="file" accept=".xlsx" data-input="variance">
+    </div>
+  </div>
+
+  <section id="results">
+    <div class="rhead">
+      <img class="rtile" src="logos_svg/DPZ_2025_Logo_Tile_Blue_RGB.svg" alt="Domino's">
+      <h2 id="results-title">Projeção de dias de estoque</h2>
+      <span class="info" id="rinfo"></span>
+    </div>
+    <div id="rbanner" class="rbanner"></div>
+    <div class="legend">
+      <span><i class="dot r"></i> Crítico (≤ 2 dias)</span>
+      <span><i class="dot y"></i> Atenção (≤ 5 dias)</span>
+      <span><i class="dot g"></i> Massas exibidas em bandejas</span>
+    </div>
+    <div class="filters" id="filters"></div>
+
+    <div id="producao">
+      <div class="prod-head">
+        <div>
+          <h3>Produção de massas <span class="tag">PVPS por vencimento</span></h3>
+          <p class="prod-sub">A produzir = <b>consumo dos próximos 5 dias</b> (validade da massa) <b>−</b> estoque final <b>+</b> bandejas que vão vencer. Informe os vencimentos abaixo se houver.</p>
+        </div>
+        <div class="prod-controls">
+          <label>Data da produção
+            <input type="date" id="prodDate">
+          </label>
+        </div>
+      </div>
+      <div id="prodInfo" class="prod-info"></div>
+      <div id="prodRows"></div>
+      <p class="prod-note">A massa tem <b>5 dias de uso</b>; por isso a produção cobre o consumo dos próximos 5 dias. As bandejas que vão vencer são <b>somadas</b> à produção (serão descartadas e precisam ser repostas).</p>
+    </div>
+
+    <div class="tablewrap">
+      <table id="tbl">
+        <thead><tr>
+          <th data-sort="desc">Descrição</th>
+          <th data-sort="unit">Unid.</th>
+          <th data-sort="stock" class="num">Estoque</th>
+          <th data-sort="days" class="num">Dias <span class="ar">▲</span></th>
+          <th data-sort="date">Acaba em</th>
+          <th data-sort="wd">Dia da semana</th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div class="empty" id="empty" style="display:none">Nenhum item nesta categoria.</div>
+    </div>
+  </section>
+</div>
+
+<script>
+/* ======================= Configuração ======================= */
+const BANDEJA = { "7DOUGH":12, "8HDOUGH":12, "11HDOUGH":8, "14DOUGH":6, "11HDOPAN":7 };
+// Massas cujo estoque em bandejas é arredondado PARA CIMA (bandeja cheia) na exibição.
+const ARRED_CIMA = new Set(["11HDOUGH","14DOUGH","11HDOPAN"]);
+const DIAS_PT = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"]; // getDay() 0=Dom
+const MAX_DIAS = 400;
+
+/* Categoria por código (nível único, 9 categorias) */
+const CAT = {};
+const add = (cat, codes)=>codes.forEach(c=>CAT[c]=cat);
+add("Massas",            ["7DOUGH","8HDOUGH","11HDOUGH","14DOUGH","11HDOPAN"]);
+add("Laticínios",       ["CHEESE","REQUEIJA","CRMCHESE","GORGONZO","CATUPIRY","CHEBUFF","PARMESAN","LASANHA","SUBRL"]);
+add("Carnes e Proteínas",["SMKCALB","SHRDCHIK","CARNESCA","CALABRES","PEPPERON","BACON","GRILCHIK","HAM","QUAILEGG"]);
+add("Molhos",           ["SAUCEZA","AMRSAU","CHEDSAU","MAYO","SWTCHIL","CHIPOTLE","GARPASTE"]);
+add("Vegetais",         ["TOMATO","PIMENTAO","ONION","MUSHROOM","CORN","GARLIC","BLKOLIVE"]);
+add("Secos e Temperos", ["BASIL","OREGANO","MEXSPC","CORNML","CINBLN","OLIVEOIL","VEGFAT"]);
+add("Doces",            ["BISCOFF","OVOMALT","CHOCPCS","NUTELLA","CHOCGRAN","BRGDRO","CREAM","DOCE","GOIABA","HVYCREAM"]);
+add("Bebidas",          ["1LTCOKE","500MLCKE","2LTCKE","2LSPRITE","2LFGRP","2LTGJS","2LTZERO","LATAZRO","LSDVGRP","LATACOKE","LATAAMTL","LATAFORG","LATAGJS","LATAGRP","LATASPRT","LSDVMAJA","LSDVPCH","1LTCKZRO","1LTORG","330MHNKN","500MWTR","500MWTRG","2LTFORG","REDBULOG","REDBULZR"]);
+add("Embalagens",       ["VLCANBOX","EMBALUM","PAPERBAG","PAPERWAV","BOXDOM","POTEDIP","TAMPADP","TAMPEMBA","14PBOX","12PBOX","LSNBOX","16PBOX","7PBOX","_PANPBOX"]);
+const CAT_ORDER = ["Massas","Laticínios","Carnes e Proteínas","Molhos","Vegetais","Secos e Temperos","Doces","Bebidas","Embalagens","Outros"];
+
+// Categorização automática (itens mudam a cada loja):
+// 1) código conhecido -> 2) palavra-chave na descrição -> 3) tipo do KEYS (COLA/PAPER) -> Outros
+const norm = s => String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase();
+const KW = [
+  [/CAIXA|EMBALAGEM|PAPEL|\bPOTE\b|TAMPA|\bSACO\b|\bBOX\b/, 'Embalagens'],
+  [/MASSA|DOUGH/, 'Massas'],
+  [/LASANHA|PANE ROMANO|MUCARELA|MUSSARELA|QUEIJO|REQUEIJAO|CATUPIRY|CREAM CHEESE|GORGONZOLA|PARMESAO|BUFALA|MASCARPONE/, 'Laticínios'],
+  [/CALABRESA|PEPPERON|PEPERONI|BACON|FRANGO|CARNE|PRESUNTO|CODORNA|SALAME|LOMBO|LINGUICA/, 'Carnes e Proteínas'],
+  [/MOLHO|MAIONESE|CHIPOTLE|SWEET CHILI|PASTA DE ALHO|BARBECUE|SAUCE|CHEDDAR/, 'Molhos'],
+  [/TOMATE|CEBOLA|PIMENTAO|CHAMPIGNON|COGUMELO|MILHO|\bALHO\b|AZEITONA|RUCULA|BROCOLIS/, 'Vegetais'],
+  [/NUTELLA|NUTELA|BISCOFF|OVOMALT|CHOCOLATE|BRIGADEIRO|DOCE DE LEITE|GOIABADA|CONFEITO|GRANULADO|BAUNILHA|CALDA/, 'Doces'],
+  [/OREGANO|MANJERICAO|CONDIMENTO|FUBA|AZEITE|GORDURA|\bSAL\b|ACUCAR|FARINHA|CANELA/, 'Secos e Temperos'],
+  [/COCA|FANTA|SPRITE|GUARANA|SUCO|\bAGUA\b|CERVEJA|HEINEKEN|AMSTEL|RED ?BULL|\bCHA\b|ICE TEA|\bMATE\b|DEL VALLE|\bLATA\b|LONG NECK/, 'Bebidas'],
+];
+function catOf(code, desc, type){
+  if(CAT[code]) return CAT[code];
+  const d = norm(desc);
+  for(const [re,cat] of KW){ if(re.test(d)) return cat; }
+  const t = String(type||'').toUpperCase();
+  if(t==='COLA') return 'Bebidas';
+  if(t==='PAPER') return 'Embalagens';
+  return 'Outros';
+}
+
+/* ======================= Leitura dos arquivos ======================= */
+const files = { trend:null, variance:null };
+const buffers = { trend:null, variance:null };
+const CHECK_SVG = `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
+const DOWN_SVG = `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
+const fmt = b => b>=1048576 ? (b/1048576).toFixed(1)+' MB' : Math.max(1,Math.round(b/1024))+' KB';
+
+function render(drop, key){
+  const f = files[key];
+  drop.classList.remove('over');
+  if(!f){ drop.classList.remove('filled','mismatch');
+    drop.innerHTML = DOWN_SVG+'<div class="big">Arraste o relatório aqui</div><div class="small">ou clique para selecionar</div>'; return; }
+  const nome=f.name.toLowerCase(), isXlsx=nome.endsWith('.xlsx'), match=nome.includes(drop.dataset.match);
+  drop.classList.toggle('filled', match&&isXlsx);
+  drop.classList.toggle('mismatch', !(match&&isXlsx));
+  let flag = !isXlsx ? '<div class="flag warn">⚠ Não é um arquivo .xlsx</div>'
+           : match  ? '<div class="flag ok">✓ Relatório reconhecido</div>'
+                    : '<div class="flag warn">⚠ Confira: o nome não parece ser deste relatório</div>';
+  drop.innerHTML = CHECK_SVG+'<div class="file">'+f.name+'</div><div class="meta">'+fmt(f.size)+'</div>'+flag+
+                   '<button class="clear" data-clear="'+key+'">Trocar arquivo</button>';
+}
+
+function setFile(key, file){
+  files[key]=file;
+  const r=new FileReader();
+  r.onload = e=>{ buffers[key]=e.target.result; render(document.querySelector('.drop[data-key="'+key+'"]'),key); tryRun(); };
+  r.readAsArrayBuffer(file);
+  render(document.querySelector('.drop[data-key="'+key+'"]'),key);
+}
+
+document.querySelectorAll('.drop').forEach(drop=>{
+  const key=drop.dataset.key, input=document.querySelector('input[data-input="'+key+'"]');
+  drop.addEventListener('click', e=>{ if(e.target.dataset.clear) return; input.click(); });
+  input.addEventListener('change', ()=>{ if(input.files[0]) setFile(key,input.files[0]); });
+  ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev, e=>{e.preventDefault();e.stopPropagation();drop.classList.add('over');}));
+  ['dragleave','dragend'].forEach(ev=>drop.addEventListener(ev, e=>{e.preventDefault();e.stopPropagation();
+    if(ev==='dragleave'&&drop.contains(e.relatedTarget))return; drop.classList.remove('over');}));
+  drop.addEventListener('drop', e=>{e.preventDefault();e.stopPropagation(); const f=e.dataTransfer.files[0]; if(f) setFile(key,f);});
+});
+document.addEventListener('click', e=>{
+  const k=e.target.dataset.clear;
+  if(k){ e.stopPropagation(); files[k]=null; buffers[k]=null;
+    document.querySelector('input[data-input="'+k+'"]').value='';
+    render(document.querySelector('.drop[data-key="'+k+'"]'),k);
+    if(k==='trend'){
+      document.getElementById('results').style.display='none';
+      document.getElementById('tab-results-btn').style.display='none';
+      switchTab('upload');
+    } else {
+      tryRun();
+    }
+  }
+});
+['dragover','drop'].forEach(ev=>window.addEventListener(ev, e=>e.preventDefault()));
+
+/* ======================= Alternância de Abas ======================= */
+function switchTab(tabId) {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tabId);
+  });
+  if (tabId === 'upload') {
+    document.querySelector('header').style.display = 'block';
+    document.getElementById('dropzone').style.display = 'grid';
+    document.getElementById('results').style.display = 'none';
+  } else if (tabId === 'results') {
+    document.querySelector('header').style.display = 'none';
+    document.getElementById('dropzone').style.display = 'none';
+    document.getElementById('results').style.display = 'block';
+    document.getElementById('results').scrollIntoView({behavior:'smooth',block:'start'});
+  }
+}
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.onclick = () => switchTab(btn.dataset.tab);
+});
+
+/* ======================= Processamento ======================= */
+function readRows(buf){
+  const wb = XLSX.read(buf, {cellDates:true});
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  return XLSX.utils.sheet_to_json(ws, {header:1, raw:true});
+}
+function colIdx(hdr, ...names){
+  // aceita 1+ nomes possíveis (formatos variam entre lojas), retorna o 1º encontrado
+  for(const name of names){
+    const t = name.toLowerCase();
+    const i = hdr.findIndex(h => String(h||'').trim().toLowerCase()===t);
+    if(i>=0) return i;
+  }
+  return -1;
+}
+const toNum = v => { const n=parseFloat(v); return isNaN(n)?0:n; };
+
+let DATA = [];     // linhas da projeção
+let META = {};
+
+function tryRun(){
+  if(!buffers.trend) return;   // só o Item Trend é obrigatório; Variance é opcional
+  try { run(); } catch(err){ alert('Erro ao ler os relatórios: '+err.message); console.error(err); }
+}
+
+function calcularDiasEstoque(stock, med, dataBase){
+  let dias=null, dfim=null, wdfim='', obs='';
+  if(!med){ obs='sem histórico'; }
+  else if(med.reduce((a,b)=>a+b,0)<=0){ dias=0; obs='sem consumo'; }
+  else if(dataBase){
+    let k=0;
+    while(k<MAX_DIAS){
+      const wd=new Date(dataBase.getTime()+k*86400000).getDay();
+      const uso=med[wd];
+      if(uso<=0){ k++; continue; }
+      if(stock>=uso){ stock-=uso; k++; }
+      else { dias=k+stock/uso; dfim=new Date(dataBase.getTime()+k*86400000); wdfim=DIAS_PT[dfim.getDay()]; break; }
+    }
+    if(dias===null){ dias=MAX_DIAS; obs='>'+MAX_DIAS+' dias'; }
+  }
+  return { dias, dfim, wdfim, obs };
+}
+
+function run(){
+  /* ---- Item Trend: média de Ideal Usage por dia da semana ---- */
+  const tr = readRows(buffers.trend), th = tr[0];
+  const iCode=colIdx(th,'Inv Code'), iDate=colIdx(th,'Date'),
+        iIdeal=colIdx(th,'Ideal Usage'), iDesc=colIdx(th,'Description'), iUnit=colIdx(th,'Count Unit');
+  if(iCode<0||iIdeal<0) throw new Error('No relatório Item Trend faltou a coluna '+(iCode<0?'"Inv Code"':'"Ideal Usage"')+'. Confira se arrastou o arquivo certo.');
+  
+  const soma={}, cont={}, desc={}, unit={};
+  let maxDate = null;
+  for(let r=1;r<tr.length;r++){
+    const row=tr[r]; if(!row||row[iCode]==null) continue;
+    const code=String(row[iCode]).trim();
+    let d=row[iDate]; if(!(d instanceof Date)) d=new Date(String(d).slice(0,10));
+    if(isNaN(d)) continue;
+    if(!maxDate || d > maxDate) maxDate = d;
+    const wd=d.getDay();
+    if(!soma[code]){ soma[code]=Array(7).fill(0); cont[code]=Array(7).fill(0); }
+    soma[code][wd]+=toNum(row[iIdeal]); cont[code][wd]++;
+    if(desc[code]==null) desc[code]=row[iDesc]; if(unit[code]==null) unit[code]=row[iUnit];
+  }
+  const media={};
+  for(const c in soma) media[c]=soma[c].map((s,w)=>cont[c][w]?s/cont[c][w]:0);
+
+  /* ---- Determinar Data e Loja ---- */
+  let dataArq = null;
+  let dataBase = null;
+  let loja = '—';
+
+  if (buffers.variance) {
+    const vr = readRows(buffers.variance), vh = vr[0];
+    const vCode=colIdx(vh,'Inventory Code','Inv Code'), vEnd=colIdx(vh,'Ending Inventory Qty');
+    if(vCode<0||vEnd<0) throw new Error('No relatório Variance faltou a coluna '+(vCode<0?'"Inventory Code/Inv Code"':'"Ending Inventory Qty"')+'. Confira se arrastou o arquivo certo.');
+    
+    const nome=files.variance.name;
+    const md=nome.match(/(\d{4})-(\d{2})-(\d{2})/);
+    dataArq = md ? new Date(+md[1], +md[2]-1, +md[3]) : null;
+    const semData = nome.replace(/\d{4}-\d{2}-\d{2}/g,'');
+    const ml=semData.match(/(\d{4,6})/); loja = ml?ml[1]:'—';
+  } else {
+    const nome=files.trend.name;
+    const md=nome.match(/(\d{4})-(\d{2})-(\d{2})/);
+    dataArq = md ? new Date(+md[1], +md[2]-1, +md[3]) : (maxDate || null);
+    const semData = nome.replace(/\d{4}-\d{2}-\d{2}/g,'');
+    const ml=semData.match(/(\d{4,6})/); loja = ml?ml[1]:'—';
+  }
+
+  if (dataArq) {
+    dataBase = new Date(dataArq.getTime()+86400000);
+  }
+  META.loja = loja;
+  META.dataArq = dataArq;
+  META.dataBase = dataBase;
+
+  const rows=[]; const bad=[];
+  if (buffers.variance) {
+    const vr = readRows(buffers.variance), vh = vr[0];
+    const vCode=colIdx(vh,'Inventory Code','Inv Code'), vEnd=colIdx(vh,'Ending Inventory Qty'),
+          vDesc=colIdx(vh,'Description'), vType=colIdx(vh,'Inventory Type');
+          
+    for(let r=1;r<vr.length;r++){
+      const row=vr[r]; if(!row||row[vCode]==null) continue;
+      const code=String(row[vCode]).trim();
+      const d = desc[code]!=null?desc[code]:(row[vDesc]!=null?row[vDesc]:'');
+      if(!String(d).trim()) continue; // pula linhas-lixo/totais sem descrição (ex.: "93", "89")
+      const rawEnd=row[vEnd];
+      const est = (manualStock[code] !== undefined && manualStock[code] !== '') ? parseFloat(manualStock[code]) * (BANDEJA[code] || 1) : toNum(rawEnd);
+      const badStock = rawEnd!=null && String(rawEnd).trim()!=='' && !isFinite(parseFloat(String(rawEnd).replace(',','.')));
+      let u = unit[code]!=null?unit[code]:'';
+      const med=media[code];
+      const res = calcularDiasEstoque(est, med, dataBase);
+      const fator=BANDEJA[code]; let estEx=est, unidEx=u;
+      if(fator){
+        estEx=est/fator;
+        unidEx='bandeja';
+        if(ARRED_CIMA.has(code)){
+          estEx=Math.ceil(estEx);
+        } else if (code==='7DOUGH'||code==='8HDOUGH'){
+          estEx=parseFloat(estEx.toFixed(1));
+        }
+      }
+      if(badStock) bad.push({code, desc:String(d), raw:String(rawEnd)});
+      rows.push({code, desc:String(d), cat:catOf(code, d, row[vType]), unit:unidEx, stock:estEx,
+                 days:res.dias, date:res.dfim, wd:res.wdfim, obs:res.obs, fator, factor:fator,
+                 estU:est, med:med||null, badStock, rawEnd});
+    }
+  } else {
+    // Variance opcional: popular a partir dos itens do Item Trend
+    for (const code in soma) {
+      const d = desc[code] || '';
+      if(!String(d).trim()) continue;
+      const est = (manualStock[code] !== undefined && manualStock[code] !== '') ? parseFloat(manualStock[code]) * (BANDEJA[code] || 1) : 0;
+      let u = unit[code] || '';
+      const med=media[code];
+      const res = calcularDiasEstoque(est, med, dataBase);
+      const fator=BANDEJA[code]; let estEx=est, unidEx=u;
+      if(fator){
+        estEx=est/fator;
+        unidEx='bandeja';
+        if(ARRED_CIMA.has(code)){
+          estEx=Math.ceil(estEx);
+        } else if (code==='7DOUGH'||code==='8HDOUGH'){
+          estEx=parseFloat(estEx.toFixed(1));
+        }
+      }
+      rows.push({code, desc:String(d), cat:catOf(code, d), unit:unidEx, stock:estEx,
+                 days:res.dias, date:res.dfim, wd:res.wdfim, obs:res.obs, fator, factor:fator,
+                 estU:est, med:med||null, badStock:false, rawEnd:''});
+    }
+  }
+  DATA=rows; META.bad=bad;
+
+  // Se não tiver Variance, foca automaticamente em "Massas" para o usuário lançar estoque
+  if (!buffers.variance) {
+    selCats.clear();
+    selCats.add("Massas");
+  }
+
+  buildFilters(); sortBy('days',true); renderTable();
+  const info=document.getElementById('rinfo');
+  const df = META.dataArq ? META.dataArq.toLocaleDateString('pt-BR') : '—';
+  const db = META.dataBase ? META.dataBase.toLocaleDateString('pt-BR')+' ('+DIAS_PT[META.dataBase.getDay()]+')' : '—';
+  info.innerHTML = 'Loja <b>'+META.loja+'</b> &middot; arquivo '+df+' &middot; consumo a partir de <b>'+db+'</b> &middot; '+DATA.length+' insumos';
+  const banner=document.getElementById('rbanner');
+  if(META.bad.length){
+    banner.style.display='block';
+    banner.innerHTML='⚠ <b>'+META.bad.length+' item(ns) com estoque não numérico no relatório Variance</b> (lido como 0): '+
+      META.bad.map(b=>b.desc+' → "'+b.raw+'"').join(' · ')+'. Corrija a coluna <i>Ending Inventory Qty</i> no arquivo.';
+  } else banner.style.display='none';
+  document.getElementById('tab-results-btn').style.display='inline-block';
+  switchTab('results');
+}
+
+/* ======================= Filtros por categoria ======================= */
+let selCats = new Set();
+function buildFilters(){
+  const counts={}; DATA.forEach(d=>counts[d.cat]=(counts[d.cat]||0)+1);
+  const cats = CAT_ORDER.filter(c=>counts[c]);
+  const box=document.getElementById('filters');
+  let allActive = selCats.size === 0;
+  let html = '<span class="chip all' + (allActive ? ' active' : '') + '" data-cat="__all">Todas <span class="n">'+DATA.length+'</span></span>';
+  cats.forEach(c=> {
+    let active = selCats.has(c);
+    html+='<span class="chip' + (active ? ' active' : '') + '" data-cat="'+c+'">'+c+' <span class="n">'+counts[c]+'</span></span>';
+  });
+  box.innerHTML=html;
+  box.querySelectorAll('.chip').forEach(ch=>ch.onclick=()=>{
+    const c=ch.dataset.cat;
+    if(c==='__all'){ selCats.clear(); }
+    else { ch.classList.contains('active')?selCats.delete(c):selCats.add(c); }
+    // atualizar estados
+    box.querySelectorAll('.chip').forEach(x=>{
+      if(x.dataset.cat==='__all') x.classList.toggle('active', selCats.size===0);
+      else x.classList.toggle('active', selCats.has(x.dataset.cat));
+    });
+    renderTable(); updateProdVisibility();
+  });
+}
+
+/* ======================= Tabela + ordenação ======================= */
+let sortKey='days', sortAsc=true;
+function sortBy(key, asc){ sortKey=key; sortAsc=asc; }
+document.querySelectorAll('#tbl thead th').forEach(th=>th.onclick=()=>{
+  const k=th.dataset.sort;
+  if(sortKey===k) sortAsc=!sortAsc; else { sortKey=k; sortAsc=true; }
+  document.querySelectorAll('#tbl thead th .ar').forEach(a=>a.remove());
+  const ar=document.createElement('span'); ar.className='ar'; ar.textContent=sortAsc?'▲':'▼';
+  th.appendChild(document.createTextNode(' ')); th.appendChild(ar);
+  renderTable();
+});
+
+function cmp(a,b){
+  let x=a[sortKey], y=b[sortKey];
+  if(sortKey==='days'){ x=x==null?1e9:x; y=y==null?1e9:y; }
+  if(sortKey==='date'){ x=x?x.getTime():1e15; y=y?y.getTime():1e15; }
+  if(typeof x==='string') x=x.toLowerCase(); if(typeof y==='string') y=y.toLowerCase();
+  return (x>y?1:x<y?-1:0)*(sortAsc?1:-1);
+}
+function renderTable(){
+  let rows = selCats.size ? DATA.filter(d=>selCats.has(d.cat)) : DATA.slice();
+  rows.sort(cmp);
+  const tb=document.getElementById('tbody'); tb.innerHTML='';
+  document.getElementById('empty').style.display = rows.length?'none':'block';
+  const frag=document.createDocumentFragment();
+  rows.forEach(d=>{
+    const tr=document.createElement('tr');
+    let cls='', dtxt='—';
+    if(d.days!=null){ if(d.days<=2)cls='r'; else if(d.days<=5)cls='y'; dtxt=d.days.toFixed(1); }
+    else dtxt=d.obs||'—';
+    let estVal = d.stock;
+    let formatOpts = {maximumFractionDigits:2};
+    if (d.code === '7DOUGH' || d.code === '8HDOUGH') {
+      formatOpts = {minimumFractionDigits: 1, maximumFractionDigits: 1};
+    } else if (BANDEJA[d.code]) {
+      estVal = Math.ceil(d.stock);
+      formatOpts = {maximumFractionDigits: 0};
+    }
+    const est = d.badStock ? '<span class="days r" title="valor não numérico no relatório: '+d.rawEnd+'">⚠ inválido</span>'
+                           : estVal.toLocaleString('pt-BR', formatOpts);
+    const date = d.date ? d.date.toLocaleDateString('pt-BR') : (d.obs&&d.days==null?'—':(d.days===0?'hoje':'—'));
+    tr.innerHTML =
+      '<td class="desc">'+d.desc+'</td>'+
+      '<td>'+d.unit+'</td>'+
+      '<td class="num">'+est+'</td>'+
+      '<td class="days '+cls+'">'+dtxt+'</td>'+
+      '<td>'+date+'</td>'+
+      '<td>'+(d.wd||'')+'</td>';
+    frag.appendChild(tr);
+  });
+  tb.appendChild(frag);
+}
+
+/* ======================= Produção de massas (PVPS) ======================= */
+const CAD_DIAS = { D:[0,1,2,3,4,5,6], MWF:[1,3,5], TTS:[2,4,6] }; // getDay: Dom0..Sáb6
+const addDays = (d,n)=> new Date(d.getTime()+n*86400000);
+const diffDays = (a,b)=> Math.round((b-a)/86400000);
+const massRows = ()=> DATA.filter(d=>d.factor && d.med).sort((a,b)=>a.desc.localeCompare(b.desc));
+const prodState = {}; // code -> [{date, qtd}, ...]
+
+function nextProd(D, cad){
+  const set = CAD_DIAS[cad];
+  for(let k=1;k<=8;k++){ const t=addDays(D,k); if(set.includes(t.getDay())) return t; }
+  return addDays(D,1);
+}
+
+function updateProdVisibility(){
+  const show = selCats.size===1 && selCats.has('Massas');
+  const box = document.getElementById('producao');
+  box.style.display = show ? 'block' : 'none';
+  const titleEl = document.getElementById('results-title');
+  if (titleEl) {
+    titleEl.textContent = show ? 'Pedidos de massa' : 'Projeção de dias de estoque';
+  }
+  if(show) buildProdSkeleton();
+}
+
+const prodCount = {};   // code -> nº de vencimentos que o usuário quer abrir
+const manualStock = {}; // code -> estoque final em bandejas digitado manualmente
+
+function renderVencs(code){
+  const m = massRows().find(x=>x.code===code); if(!m) return;
+  const n = prodCount[code] ?? 0;
+  const saved = prodState[code] || [];
+  const box = document.getElementById('vencs-'+code);
+  if(!n){ box.innerHTML='<span class="novenc">Sem vencimentos informados — assume tudo utilizável</span>'; return; }
+  let html='';
+  for(let i=0;i<n;i++){
+    const s = saved[i]||{};
+    html += '<div class="venc"><span class="lbl">Venc. '+(i+1)+'</span><div class="venc-in">'+
+      '<input type="date" data-f="date" value="'+(s.date||'')+'">'+
+      '<input type="number" min="0" step="1" placeholder="0" data-f="qtd" value="'+(s.qtd??'')+'"><span class="un">band</span>'+
+      '</div></div>';
+  }
+  box.innerHTML=html;
+}
+
+function saveVencState(){
+  massRows().forEach(m=>{
+    const box=document.getElementById('vencs-'+m.code); if(!box) return;
+    const ds=[...box.querySelectorAll('input[data-f=date]')];
+    const qs=[...box.querySelectorAll('input[data-f=qtd]')];
+    prodState[m.code]=ds.map((d,i)=>({date:d.value, qtd:qs[i]?qs[i].value:''}));
+  });
+}
+
+function buildProdSkeleton(){
+  const dInput=document.getElementById('prodDate');
+  if(!dInput.value && META.dataBase) dInput.value = META.dataBase.toISOString().slice(0,10);
+  const wrap=document.getElementById('prodRows'); wrap.innerHTML='';
+  massRows().forEach(m=>{
+    if(prodCount[m.code]===undefined) prodCount[m.code] = (prodState[m.code]||[]).length;
+    const sv = (manualStock[m.code]!==undefined) ? manualStock[m.code]
+             : (m.stock!=null && !m.badStock ? m.stock : '');
+    const origem = m.stock==null ? 'digite o estoque final'
+                 : m.badStock ? 'relatório inválido ("'+m.rawEnd+'") — digite'
+                 : 'do Variance (editável)';
+    const row=document.createElement('div'); row.className='mrow';
+    row.innerHTML =
+      '<div><div class="mname">'+m.desc+'</div>'+
+        '<label class="mstock-in">Estoque final (band)'+
+          '<input type="number" min="0" step="0.01" placeholder="0" data-stock="'+m.code+'" value="'+sv+'">'+
+        '</label>'+
+        '<div class="mstock">'+origem+'</div></div>'+
+      '<div class="vencs-wrap">'+
+        '<label class="vcount">Nº de vencimentos'+
+          '<input type="number" min="0" max="8" step="1" value="'+prodCount[m.code]+'" data-vcount="'+m.code+'">'+
+        '</label>'+
+        '<div class="vencs" id="vencs-'+m.code+'"></div>'+
+      '</div>'+
+      '<div class="mout" id="out-'+m.code+'"><div class="big">–</div><div class="cap">a produzir</div></div>';
+    wrap.appendChild(row);
+    renderVencs(m.code);
+  });
+  computeProd();
+}
+
+const DIAS_VALIDADE = 5; // massa: 5 dias de uso (janela de consumo coberta pela produção)
+
+function computeProd(){
+  const dv=document.getElementById('prodDate').value;
+  const info=document.getElementById('prodInfo');
+  if(!dv){ info.textContent='Informe a data da produção.'; return; }
+  const D=new Date(dv+'T00:00:00');
+  const lastDay=addDays(D,DIAS_VALIDADE-1);   // D .. D+4 (5 dias)
+  const fmtD=x=>x.toLocaleDateString('pt-BR')+' ('+DIAS_PT[x.getDay()]+')';
+  const nomes=[]; for(let k=0;k<DIAS_VALIDADE;k++) nomes.push(DIAS_PT[addDays(D,k).getDay()]);
+  info.innerHTML='Produção em <b>'+fmtD(D)+'</b>.<br>Consumo dos próximos <b>5 dias</b> (validade da massa): <b>'+nomes.join(', ')+
+    '</b> ('+D.toLocaleDateString('pt-BR')+' a '+lastDay.toLocaleDateString('pt-BR')+').<br>'+
+    '<b>A produzir = consumo dos 5 dias − estoque final + bandejas vencendo.</b>';
+
+  saveVencState();
+  massRows().forEach(m=>{
+    // consumo dos 5 dias (média por dia da semana, ficha técnica)
+    let consU=0; for(let k=0;k<DIAS_VALIDADE;k++) consU+=m.med[addDays(D,k).getDay()];
+    const consBand=consU/m.factor;
+    // estoque final = campo manual (pré-preenchido do Variance, editável)
+    const si=document.querySelector('input[data-stock="'+m.code+'"]');
+    if(si) manualStock[m.code]=si.value;
+    const estBand = (si && si.value!=='') ? parseFloat(si.value) : 0;
+    const semEstoque = !si || si.value==='';
+    // bandejas que vão vencer (informadas) — repostas na produção
+    let vencBand=0, temVenc=false;
+    (prodState[m.code]||[]).forEach(s=>{ const q=parseFloat(s.qtd); if(q>0){ vencBand+=q; temVenc=true; } });
+
+    const produzir=Math.max(0, Math.ceil(consBand - estBand + vencBand));
+    const sobra=estBand - consBand; // se positivo, estoque passa dos 5 dias -> risco de descarte
+
+    const out=document.getElementById('out-'+m.code);
+    const fmtB = val => {
+      if (m.code === '7DOUGH' || m.code === '8HDOUGH') {
+        return val.toLocaleString('pt-BR', {minimumFractionDigits: 1, maximumFractionDigits: 1});
+      } else {
+        return Math.ceil(val).toLocaleString('pt-BR', {maximumFractionDigits: 0});
+      }
+    };
+    let extra='<div class="extra">Consumo 5 dias: <b>'+fmtB(consBand)+'</b> band − estoque final: <b>'+
+              (semEstoque?'0':fmtB(estBand))+'</b> band'+(temVenc?' + vencendo: <b>'+fmtB(vencBand)+'</b> band':'')+'</div>';
+    if(!temVenc && sobra>0.5) extra+='<div class="extra warn">⚠ estoque supera a validade (5 dias) — risco de descarte de ~'+fmtB(sobra)+' band</div>';
+    out.innerHTML='<div class="big">'+produzir+'</div><div class="cap">bandejas a produzir</div>'+extra;
+  });
+}
+
+document.getElementById('prodDate').addEventListener('change', computeProd);
+document.getElementById('prodRows').addEventListener('input', e=>{
+  const code=e.target.dataset.vcount;
+  if(code){
+    saveVencState();                       // preserva o que já foi digitado
+    let n=parseInt(e.target.value,10); if(isNaN(n)||n<0)n=0; if(n>8)n=8;
+    prodCount[code]=n;
+    renderVencs(code);
+  }
+  const scode = e.target.dataset.stock;
+  if(scode){
+    manualStock[scode] = e.target.value;
+    const val = e.target.value !== '' ? parseFloat(e.target.value) : 0;
+    const item = DATA.find(d => d.code === scode);
+    if(item){
+      item.stock = val;
+      item.estU = val * (item.factor || 1);
+      const res = calcularDiasEstoque(item.estU, item.med, META.dataBase);
+      item.days = res.dias;
+      item.date = res.dfim;
+      item.wd = res.wdfim;
+      item.obs = res.obs;
+      renderTable();
+    }
+  }
+  computeProd();
+});
+</script>
+</body>
+</html>
