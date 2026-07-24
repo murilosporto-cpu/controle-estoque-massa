@@ -15,15 +15,13 @@
     --red:#e31837; --red-bg:#fdeaec; --yellow:#b7791f; --yellow-bg:#fdf3e2;
     --chip:#eef2f9; --chip-ink:#3a4a63;
   }
-  @media (prefers-color-scheme:dark){
-    :root{
-      --bg:#0e1420; --card:#161f2e; --ink:#e8eef7; --muted:#93a2ba;
-      --line:#26324a; --brand:#3fa9d8; --brand2:#ff5a6e;
-      --drop:#111a28; --drop-line:#33415c; --ok:#4ade80; --ok-bg:#123321;
-      --warn:#f0c674; --warn-bg:#3a2f14; --shadow:0 6px 24px rgba(0,0,0,.35);
-      --red:#ff5a6e; --red-bg:#3a1620; --yellow:#f0c674; --yellow-bg:#3a2f14;
-      --chip:#1e2a3e; --chip-ink:#b7c6dd;
-    }
+  [data-theme="dark"]{
+    --bg:#0e1420; --card:#161f2e; --ink:#e8eef7; --muted:#93a2ba;
+    --line:#26324a; --brand:#3fa9d8; --brand2:#ff5a6e;
+    --drop:#111a28; --drop-line:#33415c; --ok:#4ade80; --ok-bg:#123321;
+    --warn:#f0c674; --warn-bg:#3a2f14; --shadow:0 6px 24px rgba(0,0,0,.35);
+    --red:#ff5a6e; --red-bg:#3a1620; --yellow:#f0c674; --yellow-bg:#3a2f14;
+    --chip:#1e2a3e; --chip-ink:#b7c6dd;
   }
   *{box-sizing:border-box}
   body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
@@ -33,7 +31,9 @@
   header{text-align:center;margin-bottom:8px}
   .brand{height:38px;width:auto;margin-bottom:2px}
   .dark-only{display:none}
-  @media (prefers-color-scheme:dark){ .light-only{display:none} .dark-only{display:inline-block} }
+  .light-only{display:inline-block}
+  [data-theme="dark"] .light-only{display:none}
+  [data-theme="dark"] .dark-only{display:inline-block}
   .rtile{height:26px;width:auto;flex:0 0 auto;align-self:center}
   h1{font-size:28px;margin:10px 0 4px;font-weight:750}
   .sub{color:var(--muted);margin:0 0 28px;font-size:15px}
@@ -182,9 +182,12 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="tabs-nav">
+  <div class="tabs-nav" style="display:flex; justify-content:center; gap:16px; position:relative;">
     <button class="tab-btn active" data-tab="upload">Carregar Relatórios</button>
     <button class="tab-btn" data-tab="results" id="tab-results-btn" style="display:none">Ver Projeção</button>
+    <button id="theme-toggle" class="theme-btn" style="position:absolute; right:0; top:4px; background:none; border:1px solid var(--line); color:var(--muted); font-size:13px; font-weight:600; padding:6px 12px; border-radius:20px; cursor:pointer; display:flex; align-items:center; gap:6px; transition:0.15s;">
+      <span class="theme-icon">🌙</span> <span class="theme-text">Escuro</span>
+    </button>
   </div>
   <header>
     <img class="brand light-only" src="logos_svg/DPZ_2025_Logo_CombinationMark_Horizontal_Blue_RGB.svg" alt="Domino's">
@@ -799,6 +802,36 @@ document.getElementById('prodRows').addEventListener('input', e=>{
   }
   computeProd();
 });
+
+// Theme Selector Logic
+const themeToggle = document.getElementById('theme-toggle');
+const themeIcon = themeToggle.querySelector('.theme-icon');
+const themeText = themeToggle.querySelector('.theme-text');
+
+function getTheme() {
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme) return savedTheme;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('theme', theme);
+  if (theme === 'dark') {
+    themeIcon.textContent = '☀️';
+    themeText.textContent = 'Claro';
+  } else {
+    themeIcon.textContent = '🌙';
+    themeText.textContent = 'Escuro';
+  }
+}
+
+themeToggle.onclick = () => {
+  const currentTheme = document.documentElement.getAttribute('data-theme');
+  setTheme(currentTheme === 'dark' ? 'light' : 'dark');
+};
+
+setTheme(getTheme());
 </script>
 </body>
 </html>
