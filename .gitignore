@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Backups
+backup_inventario_*.zip
+backup_codigo_projeto.zip
+
+# Excel data files (opcional, para não subir dados confidenciais)
+são luis/*.xlsx
+*.xlsx
+*.xlsm
+
+# OS metadata
+.DS_Store
+Thumbs.db
