@@ -283,27 +283,27 @@ const CAT = {};
 const add = (cat, codes)=>codes.forEach(c=>CAT[c]=cat);
 add("Massas",            ["7DOUGH","8HDOUGH","11HDOUGH","14DOUGH","11HDOPAN"]);
 add("Laticínios",       ["CHEESE","REQUEIJA","CRMCHESE","GORGONZO","CATUPIRY","CHEBUFF","PARMESAN","LASANHA","SUBRL"]);
-add("Carnes e Proteínas",["SMKCALB","SHRDCHIK","CARNESCA","CALABRES","PEPPERON","BACON","GRILCHIK","HAM","QUAILEGG"]);
-add("Molhos",           ["SAUCEZA","AMRSAU","CHEDSAU","MAYO","SWTCHIL","CHIPOTLE","GARPASTE"]);
-add("Vegetais",         ["TOMATO","PIMENTAO","ONION","MUSHROOM","CORN","GARLIC","BLKOLIVE"]);
-add("Secos e Temperos", ["BASIL","OREGANO","MEXSPC","CORNML","CINBLN","OLIVEOIL","VEGFAT"]);
-add("Doces",            ["BISCOFF","OVOMALT","CHOCPCS","NUTELLA","CHOCGRAN","BRGDRO","CREAM","DOCE","GOIABA","HVYCREAM"]);
+add("Proteínas",        ["SMKCALB","SHRDCHIK","CARNESCA","CALABRES","PEPPERON","BACON","GRILCHIK","HAM","QUAILEGG"]);
+add("Hortifruti",       ["TOMATO","PIMENTAO","ONION","BASIL"]);
+add("Conservas",        ["MUSHROOM","CORN","GARLIC","BLKOLIVE","SAUCEZA","AMRSAU","CHEDSAU","MAYO","SWTCHIL","CHIPOTLE","GARPASTE","OREGANO","MEXSPC","CORNML","CINBLN","OLIVEOIL","VEGFAT"]);
+add("Sobremesas",       ["BISCOFF","OVOMALT","CHOCPCS","NUTELLA","CHOCGRAN","BRGDRO","CREAM","DOCE","GOIABA","HVYCREAM"]);
 add("Bebidas",          ["1LTCOKE","500MLCKE","2LTCKE","2LSPRITE","2LFGRP","2LTGJS","2LTZERO","LATAZRO","LSDVGRP","LATACOKE","LATAAMTL","LATAFORG","LATAGJS","LATAGRP","LATASPRT","LSDVMAJA","LSDVPCH","1LTCKZRO","1LTORG","330MHNKN","500MWTR","500MWTRG","2LTFORG","REDBULOG","REDBULZR"]);
-add("Embalagens",       ["VLCANBOX","EMBALUM","PAPERBAG","PAPERWAV","BOXDOM","POTEDIP","TAMPADP","TAMPEMBA","14PBOX","12PBOX","LSNBOX","16PBOX","7PBOX","_PANPBOX"]);
-const CAT_ORDER = ["Massas","Laticínios","Carnes e Proteínas","Molhos","Vegetais","Secos e Temperos","Doces","Bebidas","Embalagens","Outros"];
+add("Caixas",           ["14PBOX","12PBOX","LSNBOX","16PBOX","7PBOX","_PANPBOX","BOXDOM","VLCANBOX"]);
+add("Não CMV",          ["EMBALUM","PAPERBAG","PAPERWAV","POTEDIP","TAMPADP","TAMPEMBA"]);
+const CAT_ORDER = ["Massas","Laticínios","Proteínas","Hortifruti","Conservas","Sobremesas","Bebidas","Caixas","Não CMV"];
 
 // Categorização automática (itens mudam a cada loja):
-// 1) código conhecido -> 2) palavra-chave na descrição -> 3) tipo do KEYS (COLA/PAPER) -> Outros
+// 1) código conhecido -> 2) palavra-chave na descrição -> 3) tipo do KEYS (COLA/PAPER) -> Não CMV
 const norm = s => String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase();
 const KW = [
-  [/CAIXA|EMBALAGEM|PAPEL|\bPOTE\b|TAMPA|\bSACO\b|\bBOX\b/, 'Embalagens'],
+  [/CAIXA|\bBOX\b/, 'Caixas'],
+  [/EMBALAGEM|PAPEL|\bPOTE\b|TAMPA|\bSACO\b/, 'Não CMV'],
   [/MASSA|DOUGH/, 'Massas'],
   [/LASANHA|PANE ROMANO|MUCARELA|MUSSARELA|QUEIJO|REQUEIJAO|CATUPIRY|CREAM CHEESE|GORGONZOLA|PARMESAO|BUFALA|MASCARPONE/, 'Laticínios'],
-  [/CALABRESA|PEPPERON|PEPERONI|BACON|FRANGO|CARNE|PRESUNTO|CODORNA|SALAME|LOMBO|LINGUICA/, 'Carnes e Proteínas'],
-  [/MOLHO|MAIONESE|CHIPOTLE|SWEET CHILI|PASTA DE ALHO|BARBECUE|SAUCE|CHEDDAR/, 'Molhos'],
-  [/TOMATE|CEBOLA|PIMENTAO|CHAMPIGNON|COGUMELO|MILHO|\bALHO\b|AZEITONA|RUCULA|BROCOLIS/, 'Vegetais'],
-  [/NUTELLA|NUTELA|BISCOFF|OVOMALT|CHOCOLATE|BRIGADEIRO|DOCE DE LEITE|GOIABADA|CONFEITO|GRANULADO|BAUNILHA|CALDA/, 'Doces'],
-  [/OREGANO|MANJERICAO|CONDIMENTO|FUBA|AZEITE|GORDURA|\bSAL\b|ACUCAR|FARINHA|CANELA/, 'Secos e Temperos'],
+  [/CALABRESA|PEPPERON|PEPERONI|BACON|FRANGO|CARNE|PRESUNTO|CODORNA|SALAME|LOMBO|LINGUICA/, 'Proteínas'],
+  [/MOLHO|MAIONESE|CHIPOTLE|SWEET CHILI|PASTA DE ALHO|BARBECUE|SAUCE|CHEDDAR|CHAMPIGNON|COGUMELO|MILHO|\bALHO\b|AZEITONA|OREGANO|CONDIMENTO|FUBA|AZEITE|GORDURA|\bSAL\b|ACUCAR|FARINHA|CANELA/, 'Conservas'],
+  [/TOMATE|CEBOLA|PIMENTAO|MANJERICAO|RUCULA|BROCOLIS/, 'Hortifruti'],
+  [/NUTELLA|NUTELA|BISCOFF|OVOMALT|CHOCOLATE|BRIGADEIRO|DOCE DE LEITE|GOIABADA|CONFEITO|GRANULADO|BAUNILHA|CALDA/, 'Sobremesas'],
   [/COCA|FANTA|SPRITE|GUARANA|SUCO|\bAGUA\b|CERVEJA|HEINEKEN|AMSTEL|RED ?BULL|\bCHA\b|ICE TEA|\bMATE\b|DEL VALLE|\bLATA\b|LONG NECK/, 'Bebidas'],
 ];
 function catOf(code, desc, type){
@@ -312,8 +312,8 @@ function catOf(code, desc, type){
   for(const [re,cat] of KW){ if(re.test(d)) return cat; }
   const t = String(type||'').toUpperCase();
   if(t==='COLA') return 'Bebidas';
-  if(t==='PAPER') return 'Embalagens';
-  return 'Outros';
+  if(t==='PAPER') return 'Não CMV';
+  return 'Não CMV';
 }
 
 /* ======================= Leitura dos arquivos ======================= */
