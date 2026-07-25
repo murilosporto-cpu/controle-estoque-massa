@@ -1064,10 +1064,11 @@ document.getElementById('otbody').addEventListener('input', e => {
     }
   }
 });
-
-document.getElementById('orderDate').addEventListener('change', renderOrderTab);
-document.getElementById('deliveryDate').addEventListener('change', renderOrderTab);
-document.getElementById('safetyDays').addEventListener('input', renderOrderTab);
+['change', 'input'].forEach(ev => {
+  document.getElementById('orderDate').addEventListener(ev, renderOrderTab);
+  document.getElementById('deliveryDate').addEventListener(ev, renderOrderTab);
+  document.getElementById('safetyDays').addEventListener(ev, renderOrderTab);
+});
 
 document.getElementById('copy-order-btn').onclick = () => {
   const oDateVal = document.getElementById('orderDate').value;
