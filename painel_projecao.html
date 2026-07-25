@@ -332,6 +332,20 @@
       </div>
       <div id="order-details-info" style="margin-top:16px; font-size:13px; color:var(--muted); line-height:1.6; border-top:1px solid var(--line); padding-top:12px;"></div>
     </div>
+    
+    <!-- Seção de Caminhões em Trânsito -->
+    <div class="card" style="padding:20px; border:1px solid var(--line); border-radius:8px; margin-bottom:24px; background:var(--card);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); padding-bottom:12px; margin-bottom:16px;">
+        <h3 style="margin:0; font-size:16px; font-weight:700;">🚚 Caminhões em Trânsito / Recebimentos Programados</h3>
+        <button id="add-truck-btn" onclick="addTruck()" style="background:var(--brand); color:#fff; border:none; padding:6px 14px; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer;">
+          + Adicionar Recebimento Futuro
+        </button>
+      </div>
+      <div id="trucks-container" style="display:flex; flex-direction:column; gap:16px;">
+        <!-- Os cards de caminhões serão inseridos aqui dinamicamente -->
+      </div>
+    </div>
+
     <div class="filters" id="order-filters" style="margin-bottom:20px;"></div>
     <div class="tablewrap">
       <table id="otbl" style="width:100%; border-collapse:collapse;">
@@ -748,6 +762,7 @@ function run(){
     orderInput.value = todayStr;
     deliveryInput.value = todayStr;
   }
+  renderTrucks();
   switchTab('results');
 }
 
@@ -1051,6 +1066,115 @@ document.getElementById('tbody').addEventListener('blur', e => {
   }
 }, true);
 
+let scheduledTrucks = [];
+let truckIdCounter = 0;
+
+function addTruck() {
+  const todayStr = new Date(new Date().getTime() - new Date().getTimezoneOffset()*60000).toISOString().slice(0, 10);
+  const newTruck = {
+    id: ++truckIdCounter,
+    date: todayStr,
+    qtys: {}
+  };
+  scheduledTrucks.push(newTruck);
+  renderTrucks();
+  renderOrderTab();
+}
+
+function removeTruck(id) {
+  scheduledTrucks = scheduledTrucks.filter(t => t.id !== id);
+  renderTrucks();
+  renderOrderTab();
+}
+
+function updateTruckDate(id, dateStr) {
+  const truck = scheduledTrucks.find(t => t.id === id);
+  if (truck) {
+    truck.date = dateStr;
+    renderOrderTab();
+  }
+}
+
+function updateTruckQty(id, code, valStr) {
+  const truck = scheduledTrucks.find(t => t.id === id);
+  if (truck) {
+    const val = valStr !== '' ? parseFloat(valStr) : 0;
+    if (val > 0) {
+      truck.qtys[code] = val;
+    } else {
+      delete truck.qtys[code];
+    }
+    renderOrderTab();
+  }
+}
+
+function renderTrucks() {
+  const container = document.getElementById('trucks-container');
+  if (!container) return;
+  container.innerHTML = '';
+  
+  if (scheduledTrucks.length === 0) {
+    container.innerHTML = '<div style="font-size:13px; color:var(--muted); font-style:italic; text-align:center; padding:12px;">Nenhum caminhão em trânsito cadastrado.</div>';
+    return;
+  }
+  
+  const items = DATA.filter(d => d.med);
+  
+  scheduledTrucks.forEach(t => {
+    const card = document.createElement('div');
+    card.className = 'truck-card';
+    card.style = 'border:1px solid var(--line); border-radius:8px; padding:16px; background:var(--bg); position:relative;';
+    
+    let inputsHtml = '';
+    items.forEach(d => {
+      const qty = t.qtys[d.code] || '';
+      inputsHtml += `
+        <div style="display:flex; align-items:center; gap:6px; background:var(--card); border:1px solid var(--line); padding:4px 8px; border-radius:6px; font-size:12px; min-width:180px; justify-content:space-between;">
+          <span style="font-weight:600; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${d.desc}">${d.desc}</span>
+          <div style="display:flex; align-items:center; gap:2px;">
+            <input type="number" min="0" step="any" value="${qty}" oninput="updateTruckQty(${t.id}, '${d.code}', this.value)" style="width:50px; padding:2px 4px; border:1px solid var(--line); border-radius:4px; text-align:center; font-family:inherit; font-size:12px; background:var(--bg); color:var(--ink);">
+            <span style="color:var(--muted);">cx</span>
+          </div>
+        </div>
+      `;
+    });
+    
+    card.innerHTML = `
+      <button class="remove-truck-btn" onclick="removeTruck(${t.id})" style="position:absolute; right:16px; top:16px; background:none; border:none; color:var(--red); cursor:pointer; font-size:18px;" title="Remover caminhão">🗑️</button>
+      <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:center; margin-bottom:12px;">
+        <label style="display:flex; flex-direction:column; gap:4px; font-size:13px; font-weight:600; color:var(--muted);">
+          Data de Chegada
+          <input type="date" value="${t.date}" onchange="updateTruckDate(${t.id}, this.value)" style="padding:6px 10px; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--ink); font-family:inherit; font-size:14px;">
+        </label>
+        <div style="font-size:13px; color:var(--muted); font-weight:600;">
+          Preencha as caixas em trânsito deste recebimento:
+        </div>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; max-height:160px; overflow-y:auto; padding:4px; border:1px solid var(--line); border-radius:6px; background:var(--card);">
+        ${inputsHtml}
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function getTransitQtyInKg(code, oDate, dDate) {
+  let totalKg = 0;
+  const item = DATA.find(x => x.code === code);
+  if (!item) return 0;
+  const factor = manualFactors[code] !== undefined ? manualFactors[code] : (mbFactors[item.desc.toUpperCase().trim()] || item.fator || item.factor || 1);
+  
+  scheduledTrucks.forEach(t => {
+    if (!t.date) return;
+    const tDate = new Date(t.date + 'T00:00:00');
+    if (tDate >= oDate && tDate < dDate) {
+      const qtyBoxes = t.qtys[code] || 0;
+      totalKg += qtyBoxes * factor;
+    }
+  });
+  return totalKg;
+}
+
 // Order Tab Logics
 let orderSelCats = new Set();
 function buildOrderFilters(){
@@ -1123,11 +1247,12 @@ function renderOrderTab(){
     for (let k = 0; k < safetyVal; k++) {
       consSafety += d.med[addDays(dDate, k).getDay()] * multiplier;
     }
+    const transitKg = getTransitQtyInKg(d.code, oDate, dDate);
     const currentStockBase = d.estU || 0;
-    const stockAtDeliveryBase = currentStockBase - consLeadTime;
+    const stockAtDeliveryBase = currentStockBase - consLeadTime + transitKg;
     const isCriticalRupture = stockAtDeliveryBase < 0;
     const requiredStockBase = consLeadTime + consCoverage + consSafety;
-    const suggestionBase = Math.max(0, requiredStockBase - currentStockBase);
+    const suggestionBase = Math.max(0, requiredStockBase - currentStockBase - transitKg);
     
     const factor = manualFactors[d.code] !== undefined ? manualFactors[d.code] : (mbFactors[d.desc.toUpperCase().trim()] || d.fator || d.factor || 1);
     let suggestionDisplay = suggestionBase / factor;
@@ -1227,11 +1352,12 @@ document.getElementById('otbody').addEventListener('input', e => {
             consSafety += item.med[addDays(dDate, k).getDay()] * multiplier;
           }
           
+          const transitKg = getTransitQtyInKg(item.code, oDate, dDate);
           const currentStockBase = item.estU || 0;
-          const stockAtDeliveryBase = currentStockBase - consLeadTime;
+          const stockAtDeliveryBase = currentStockBase - consLeadTime + transitKg;
           const isCriticalRupture = stockAtDeliveryBase < 0;
           const requiredStockBase = consLeadTime + consCoverage + consSafety;
-          const suggestionBase = Math.max(0, requiredStockBase - currentStockBase);
+          const suggestionBase = Math.max(0, requiredStockBase - currentStockBase - transitKg);
           
           const factor = manualFactors[item.code] !== undefined ? manualFactors[item.code] : (mbFactors[item.desc.toUpperCase().trim()] || item.fator || item.factor || 1);
           let suggestionDisplay = suggestionBase / factor;
@@ -1330,9 +1456,10 @@ document.getElementById('copy-order-btn').onclick = () => {
       consSafety += d.med[addDays(dDate, k).getDay()] * multiplier;
     }
     
+    const transitKg = getTransitQtyInKg(d.code, oDate, dDate);
     const currentStockBase = d.estU || 0;
     const requiredStockBase = consLeadTime + consCoverage + consSafety;
-    const suggestionBase = Math.max(0, requiredStockBase - currentStockBase);
+    const suggestionBase = Math.max(0, requiredStockBase - currentStockBase - transitKg);
     
     const factor = manualFactors[d.code] !== undefined ? manualFactors[d.code] : (mbFactors[d.desc.toUpperCase().trim()] || d.fator || d.factor || 1);
     let suggestionDisplay = Math.ceil(suggestionBase / factor);
