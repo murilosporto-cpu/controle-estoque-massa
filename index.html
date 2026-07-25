@@ -322,6 +322,10 @@
           Margem de Segurança (dias)
           <input type="number" id="safetyDays" min="0" max="7" step="1" value="0" style="width:100px; padding:8px 12px; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--ink); font-family:inherit; font-size:14px; text-align:center;">
         </label>
+        <label style="display:flex; flex-direction:column; gap:6px; font-size:13px; font-weight:600; color:var(--muted);">
+          Incremento de Consumo (%)
+          <input type="number" id="incrementPercent" min="-100" max="500" step="1" value="0" style="width:100px; padding:8px 12px; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--ink); font-family:inherit; font-size:14px; text-align:center;">
+        </label>
         <button id="copy-order-btn" style="margin-left:auto; background:var(--brand); color:#fff; border:none; padding:10px 20px; border-radius:20px; font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:8px; transition:0.15s;">
           📋 Copiar WhatsApp
         </button>
@@ -591,10 +595,12 @@ function calcularDiasEstoque(stock, med, dataBase){
   if(!med){ obs='sem histórico'; }
   else if(med.reduce((a,b)=>a+b,0)<=0){ dias=0; obs='sem consumo'; }
   else if(dataBase){
+    const incVal = parseFloat(document.getElementById('incrementPercent')?.value || 0);
+    const multiplier = 1 + (incVal / 100);
     let k=0;
     while(k<MAX_DIAS){
       const wd=new Date(dataBase.getTime()+k*86400000).getDay();
-      const uso=med[wd];
+      const uso=med[wd] * multiplier;
       if(uso<=0){ k++; continue; }
       if(stock>=uso){ stock-=uso; k++; }
       else { dias=k+stock/uso; dfim=new Date(dataBase.getTime()+k*86400000); wdfim=DIAS_PT[dfim.getDay()]; break; }
@@ -1103,17 +1109,19 @@ function renderOrderTab(){
   items.forEach(d => {
     if (!d.med) return;
     
+    const incVal = parseFloat(document.getElementById('incrementPercent')?.value || 0);
+    const multiplier = 1 + (incVal / 100);
     let consLeadTime = 0;
     for (let k = 0; k < leadTimeDays; k++) {
-      consLeadTime += d.med[addDays(oDate, k).getDay()];
+      consLeadTime += d.med[addDays(oDate, k).getDay()] * multiplier;
     }
     let consCoverage = 0;
     for (let k = 0; k < 7; k++) {
-      consCoverage += d.med[addDays(dDate, k).getDay()];
+      consCoverage += d.med[addDays(dDate, k).getDay()] * multiplier;
     }
     let consSafety = 0;
     for (let k = 0; k < safetyVal; k++) {
-      consSafety += d.med[addDays(dDate, k).getDay()];
+      consSafety += d.med[addDays(dDate, k).getDay()] * multiplier;
     }
     const currentStockBase = d.estU || 0;
     const stockAtDeliveryBase = currentStockBase - consLeadTime;
@@ -1204,17 +1212,19 @@ document.getElementById('otbody').addEventListener('input', e => {
           const dDate = new Date(dDateVal + 'T00:00:00');
           const leadTimeDays = Math.max(0, diffDays(oDate, dDate));
           
+          const incVal = parseFloat(document.getElementById('incrementPercent')?.value || 0);
+          const multiplier = 1 + (incVal / 100);
           let consLeadTime = 0;
           for (let k = 0; k < leadTimeDays; k++) {
-            consLeadTime += item.med[addDays(oDate, k).getDay()];
+            consLeadTime += item.med[addDays(oDate, k).getDay()] * multiplier;
           }
           let consCoverage = 0;
           for (let k = 0; k < 7; k++) {
-            consCoverage += item.med[addDays(dDate, k).getDay()];
+            consCoverage += item.med[addDays(dDate, k).getDay()] * multiplier;
           }
           let consSafety = 0;
           for (let k = 0; k < safetyVal; k++) {
-            consSafety += item.med[addDays(dDate, k).getDay()];
+            consSafety += item.med[addDays(dDate, k).getDay()] * multiplier;
           }
           
           const currentStockBase = item.estU || 0;
@@ -1263,16 +1273,33 @@ document.getElementById('otbody').addEventListener('blur', e => {
     renderOrderTab();
   }
 }, true);
+function recalculateAll(){
+  DATA.forEach(item => {
+    if (item.med) {
+      const res = calcularDiasEstoque(item.estU, item.med, META.dataBase);
+      item.days = res.dias;
+      item.date = res.dfim;
+      item.wd = res.wdfim;
+      item.obs = res.obs;
+    }
+  });
+  renderTable();
+  renderOrderTab();
+  computeProd();
+}
+
 ['change', 'input'].forEach(ev => {
   document.getElementById('orderDate').addEventListener(ev, renderOrderTab);
   document.getElementById('deliveryDate').addEventListener(ev, renderOrderTab);
   document.getElementById('safetyDays').addEventListener(ev, renderOrderTab);
+  document.getElementById('incrementPercent').addEventListener(ev, recalculateAll);
 });
 
 document.getElementById('copy-order-btn').onclick = () => {
   const oDateVal = document.getElementById('orderDate').value;
   const dDateVal = document.getElementById('deliveryDate').value;
   const safetyVal = parseInt(document.getElementById('safetyDays').value, 10) || 0;
+  const incVal = parseFloat(document.getElementById('incrementPercent').value || 0);
   if (!oDateVal || !dDateVal) return;
   
   const oDate = new Date(oDateVal + 'T00:00:00');
@@ -1282,39 +1309,33 @@ document.getElementById('copy-order-btn').onclick = () => {
   let text = '🛒 *Sugestão de Pedido de Compras — Domino\'s*\n';
   text += '📅 *Pedido:* ' + oDate.toLocaleDateString('pt-BR') + ' | *Entrega:* ' + dDate.toLocaleDateString('pt-BR') + '\n';
   if (safetyVal > 0) text += '🛡️ *Segurança:* ' + safetyVal + ' dias\n';
+  if (incVal !== 0) text += '📈 *Incremento:* ' + incVal + '%\n';
   text += '------------------------------------------\n';
   
+  const multiplier = 1 + (incVal / 100);
   const grouped = {};
   DATA.forEach(d => {
     if (!d.med) return;
     
     let consLeadTime = 0;
     for (let k = 0; k < leadTimeDays; k++) {
-      consLeadTime += d.med[addDays(oDate, k).getDay()];
+      consLeadTime += d.med[addDays(oDate, k).getDay()] * multiplier;
     }
     let consCoverage = 0;
     for (let k = 0; k < 7; k++) {
-      consCoverage += d.med[addDays(dDate, k).getDay()];
+      consCoverage += d.med[addDays(dDate, k).getDay()] * multiplier;
     }
     let consSafety = 0;
     for (let k = 0; k < safetyVal; k++) {
-      consSafety += d.med[addDays(dDate, k).getDay()];
+      consSafety += d.med[addDays(dDate, k).getDay()] * multiplier;
     }
     
     const currentStockBase = d.estU || 0;
     const requiredStockBase = consLeadTime + consCoverage + consSafety;
     const suggestionBase = Math.max(0, requiredStockBase - currentStockBase);
     
-    const factor = d.fator || d.factor || 1;
-    let suggestionDisplay = suggestionBase / factor;
-    
-    if (d.code === '7DOUGH' || d.code === '8HDOUGH') {
-      suggestionDisplay = Math.ceil(suggestionDisplay * 10) / 10;
-    } else if (BANDEJA[d.code]) {
-      suggestionDisplay = Math.ceil(suggestionDisplay);
-    } else {
-      suggestionDisplay = Math.ceil(suggestionDisplay * 100) / 100;
-    }
+    const factor = manualFactors[d.code] !== undefined ? manualFactors[d.code] : (mbFactors[d.desc.toUpperCase().trim()] || d.fator || d.factor || 1);
+    let suggestionDisplay = Math.ceil(suggestionBase / factor);
     
     if (suggestionDisplay > 0) {
       if (!grouped[d.cat]) grouped[d.cat] = [];
