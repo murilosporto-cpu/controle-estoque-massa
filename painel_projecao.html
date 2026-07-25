@@ -912,11 +912,41 @@ document.getElementById('tbody').addEventListener('input', e=>{
       const doughInput = document.querySelector('input[data-stock="'+scode+'"]');
       if (doughInput) doughInput.value = e.target.value;
 
-      renderTable();
+      const tr = e.target.closest('tr');
+      if (tr) {
+        let cls = '', dtxt = '—';
+        if (item.days != null) {
+          if (item.days <= 2) cls = 'days r';
+          else if (item.days <= 5) cls = 'days y';
+          else cls = 'days';
+          dtxt = item.days.toFixed(1);
+        } else {
+          dtxt = item.obs || '—';
+        }
+        const cellDays = tr.querySelector('.days');
+        if (cellDays) {
+          cellDays.className = cls;
+          cellDays.textContent = dtxt;
+        }
+        const cellDate = tr.cells[4];
+        if (cellDate) {
+          cellDate.textContent = item.date ? item.date.toLocaleDateString('pt-BR') : (item.obs && item.days == null ? '—' : (item.days === 0 ? 'hoje' : '—'));
+        }
+        const cellWd = tr.cells[5];
+        if (cellWd) {
+          cellWd.textContent = item.wd || '';
+        }
+      }
       computeProd();
     }
   }
 });
+
+document.getElementById('tbody').addEventListener('blur', e => {
+  if (e.target.dataset.tblStock) {
+    renderTable();
+  }
+}, true);
 
 // Order Tab Logics
 let orderSelCats = new Set();
@@ -1058,11 +1088,79 @@ document.getElementById('otbody').addEventListener('input', e => {
       const doughInput = document.querySelector('input[data-stock="'+scode+'"]');
       if (doughInput) doughInput.value = e.target.value;
 
-      renderOrderTab();
+      const tr = e.target.closest('tr');
+      if (tr) {
+        const oDateVal = document.getElementById('orderDate').value;
+        const dDateVal = document.getElementById('deliveryDate').value;
+        const safetyVal = parseInt(document.getElementById('safetyDays').value, 10) || 0;
+        if (oDateVal && dDateVal) {
+          const oDate = new Date(oDateVal + 'T00:00:00');
+          const dDate = new Date(dDateVal + 'T00:00:00');
+          const leadTimeDays = Math.max(0, diffDays(oDate, dDate));
+          
+          let consLeadTime = 0;
+          for (let k = 0; k < leadTimeDays; k++) {
+            consLeadTime += item.med[addDays(oDate, k).getDay()];
+          }
+          let consCoverage = 0;
+          for (let k = 0; k < 7; k++) {
+            consCoverage += item.med[addDays(dDate, k).getDay()];
+          }
+          let consSafety = 0;
+          for (let k = 0; k < safetyVal; k++) {
+            consSafety += item.med[addDays(dDate, k).getDay()];
+          }
+          
+          const currentStockBase = item.estU || 0;
+          const stockAtDeliveryBase = currentStockBase - consLeadTime;
+          const isCriticalRupture = stockAtDeliveryBase < 0;
+          const requiredStockBase = consLeadTime + consCoverage + consSafety;
+          const suggestionBase = Math.max(0, requiredStockBase - currentStockBase);
+          
+          const factor = item.fator || item.factor || 1;
+          let suggestionDisplay = suggestionBase / factor;
+          let stockAtDeliveryDisplay = stockAtDeliveryBase / factor;
+          
+          if (item.code === '7DOUGH' || item.code === '8HDOUGH') {
+            suggestionDisplay = Math.ceil(suggestionDisplay * 10) / 10;
+            stockAtDeliveryDisplay = parseFloat(stockAtDeliveryDisplay.toFixed(1));
+          } else if (BANDEJA[item.code]) {
+            suggestionDisplay = Math.ceil(suggestionDisplay);
+            stockAtDeliveryDisplay = Math.ceil(stockAtDeliveryDisplay);
+          } else {
+            suggestionDisplay = Math.ceil(suggestionDisplay * 100) / 100;
+            stockAtDeliveryDisplay = parseFloat(stockAtDeliveryDisplay.toFixed(2));
+          }
+          
+          const cellDelivery = tr.cells[3];
+          if (cellDelivery) {
+            cellDelivery.innerHTML = isCriticalRupture 
+              ? '<span style="color:var(--red); font-weight:700;">⚠ Ruptura (' + stockAtDeliveryDisplay.toLocaleString('pt-BR') + ')</span>'
+              : stockAtDeliveryDisplay.toLocaleString('pt-BR');
+            if (isCriticalRupture) {
+              tr.cells[0].style.background = 'var(--red-bg)';
+            } else {
+              tr.cells[0].style.background = '';
+            }
+          }
+          const cellSug = tr.cells[4];
+          if (cellSug) {
+            cellSug.textContent = suggestionDisplay.toLocaleString('pt-BR');
+            const sugStyle = suggestionDisplay > 0 ? 'font-weight:700; color:var(--brand); opacity:1;' : 'color:var(--muted); opacity:0.6;';
+            cellSug.style = sugStyle;
+          }
+        }
+      }
       computeProd();
     }
   }
 });
+
+document.getElementById('otbody').addEventListener('blur', e => {
+  if (e.target.dataset.orderStock) {
+    renderOrderTab();
+  }
+}, true);
 ['change', 'input'].forEach(ev => {
   document.getElementById('orderDate').addEventListener(ev, renderOrderTab);
   document.getElementById('deliveryDate').addEventListener(ev, renderOrderTab);
