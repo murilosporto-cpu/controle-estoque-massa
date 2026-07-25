@@ -988,12 +988,11 @@ function renderOrderTab(){
     for (let k = 0; k < safetyVal; k++) {
       consSafety += d.med[addDays(dDate, k).getDay()];
     }
-    
     const currentStockBase = d.estU || 0;
-    const stockAtDeliveryBase = Math.max(0, currentStockBase - consLeadTime);
-    const isCriticalRupture = (currentStockBase - consLeadTime) < 0;
-    const requiredStockBase = consCoverage + consSafety;
-    const suggestionBase = Math.max(0, requiredStockBase - stockAtDeliveryBase);
+    const stockAtDeliveryBase = currentStockBase - consLeadTime;
+    const isCriticalRupture = stockAtDeliveryBase < 0;
+    const requiredStockBase = consLeadTime + consCoverage + consSafety;
+    const suggestionBase = Math.max(0, requiredStockBase - currentStockBase);
     
     const factor = d.fator || d.factor || 1;
     let suggestionDisplay = suggestionBase / factor;
@@ -1103,9 +1102,8 @@ document.getElementById('copy-order-btn').onclick = () => {
     }
     
     const currentStockBase = d.estU || 0;
-    const stockAtDeliveryBase = Math.max(0, currentStockBase - consLeadTime);
-    const requiredStockBase = consCoverage + consSafety;
-    const suggestionBase = Math.max(0, requiredStockBase - stockAtDeliveryBase);
+    const requiredStockBase = consLeadTime + consCoverage + consSafety;
+    const suggestionBase = Math.max(0, requiredStockBase - currentStockBase);
     
     const factor = d.fator || d.factor || 1;
     let suggestionDisplay = suggestionBase / factor;
