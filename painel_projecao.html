@@ -510,7 +510,7 @@ const DEFAULT_MB_FACTORS = {
   "BACON": 4.0,
   "CALABRESA": 3.0,
   "CARNE SECA": 4.0,
-  "CREAM CHEESE": 4.800000000000001,
+  "CREAM CHEESE": 4.8,
   "CREME CATUPIRY": 6.1,
   "GORGONZOLA": 3.0,
   "MOLHO PIZZA": 32.4,
@@ -735,14 +735,12 @@ function run(){
   document.getElementById('tab-results-btn').style.display='inline-block';
   document.getElementById('tab-order-btn').style.display='inline-block';
   
-  if (META.dataBase) {
-    const orderInput = document.getElementById('orderDate');
-    const deliveryInput = document.getElementById('deliveryDate');
-    if (!orderInput.value) {
-      orderInput.value = META.dataBase.toISOString().slice(0, 10);
-      const delDate = new Date(META.dataBase.getTime() + 2 * 86400000);
-      deliveryInput.value = delDate.toISOString().slice(0, 10);
-    }
+  const orderInput = document.getElementById('orderDate');
+  const deliveryInput = document.getElementById('deliveryDate');
+  if (!orderInput.value) {
+    const todayStr = new Date(new Date().getTime() - new Date().getTimezoneOffset()*60000).toISOString().slice(0, 10);
+    orderInput.value = todayStr;
+    deliveryInput.value = todayStr;
   }
   switchTab('results');
 }
