@@ -206,7 +206,19 @@
     font-size: 14px;
     transition: border-color 0.15s;
   }
-  .tbl-factor-in:focus {
+  .tbl-transit-in {
+    width: 80px;
+    padding: 4px 8px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--card);
+    color: var(--ink);
+    text-align: right;
+    font-family: inherit;
+    font-size: 14px;
+    transition: border-color 0.15s;
+  }
+  .tbl-transit-in:focus {
     border-color: var(--brand);
     outline: none;
   }
@@ -329,22 +341,18 @@
         <button id="copy-order-btn" style="margin-left:auto; background:var(--brand); color:#fff; border:none; padding:10px 20px; border-radius:20px; font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:8px; transition:0.15s;">
           📋 Copiar WhatsApp
         </button>
+        <button id="add-transit-column-btn" onclick="addTransitColumn()" style="margin-left:12px; background:#1e3a8a; color:#fff; border:none; padding:10px 20px; border-radius:20px; font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:8px; transition:0.15s;">
+          🚚 + Caminhão
+        </button>
       </div>
       <div id="order-details-info" style="margin-top:16px; font-size:13px; color:var(--muted); line-height:1.6; border-top:1px solid var(--line); padding-top:12px;"></div>
     </div>
+    </div>
+    
     <div class="filters" id="order-filters" style="margin-bottom:20px;"></div>
     <div class="tablewrap">
       <table id="otbl" style="width:100%; border-collapse:collapse;">
-        <thead>
-          <tr>
-            <th style="text-align:center; width:100px;">Fator MB</th>
-            <th style="text-align:left;">Descrição</th>
-            <th>Unidade</th>
-            <th style="text-align:right; width:120px;">Estoque Atual</th>
-            <th style="text-align:right; width:150px;">Estoque na Entrega</th>
-            <th style="text-align:right; width:150px;">Sugestão de Pedido</th>
-          </tr>
-        </thead>
+        <thead id="othead"></thead>
         <tbody id="otbody"></tbody>
       </table>
       <div class="empty" id="oempty" style="display:none; text-align:center; padding:30px; color:var(--muted);">Nenhum item com compra sugerida nesta categoria.</div>
@@ -1051,6 +1059,26 @@ document.getElementById('tbody').addEventListener('blur', e => {
   }
 }, true);
 
+let transitColumns = [];
+let transitIdCounter = 0;
+const manualTransit = {};
+
+function addTransitColumn() {
+  const colId = ++transitIdCounter;
+  transitColumns.push(colId);
+  renderOrderTab();
+}
+
+function removeTransitColumn(colId) {
+  transitColumns = transitColumns.filter(id => id !== colId);
+  Object.keys(manualTransit).forEach(code => {
+    if (manualTransit[code]) {
+      delete manualTransit[code][colId];
+    }
+  });
+  renderOrderTab();
+}
+
 // Order Tab Logics
 let orderSelCats = new Set();
 function buildOrderFilters(){
@@ -1100,11 +1128,31 @@ function renderOrderTab(){
 
   buildOrderFilters();
   
+  const othead = document.getElementById('othead');
+  let transitHeaders = '';
+  transitColumns.forEach((colId, index) => {
+    transitHeaders += `<th style="text-align:right; width:110px; color:var(--brand); position:relative;">Caminhão ${index+1} (cx) <span onclick="removeTransitColumn(${colId})" style="cursor:pointer; color:var(--red); font-size:11px; margin-left:4px;" title="Remover caminhão">❌</span></th>`;
+  });
+  othead.innerHTML = `
+    <tr>
+      <th style="text-align:center; width:100px;">Fator MB</th>
+      <th style="text-align:left;">Descrição</th>
+      <th>Unidade</th>
+      <th style="text-align:right; width:120px;">Estoque Atual</th>
+      ${transitHeaders}
+      <th style="text-align:right; width:150px;">Estoque na Entrega</th>
+      <th style="text-align:right; width:150px;">Sugestão de Pedido</th>
+    </tr>
+  `;
+  
   const tb = document.getElementById('otbody'); tb.innerHTML = '';
   let items = orderSelCats.size ? DATA.filter(d=>orderSelCats.has(d.cat)) : DATA.slice();
   let hasAnySuggestion = false;
   const activeEl = document.activeElement;
   const activeCode = activeEl ? activeEl.dataset.orderStock : null;
+  const activeFactorCode = activeEl ? activeEl.dataset.orderFactor : null;
+  const activeTransitCode = activeEl ? activeEl.dataset.orderTransit : null;
+  const activeColId = activeEl ? activeEl.dataset.colId : null;
 
   items.forEach(d => {
     if (!d.med) return;
@@ -1123,13 +1171,22 @@ function renderOrderTab(){
     for (let k = 0; k < safetyVal; k++) {
       consSafety += d.med[addDays(dDate, k).getDay()] * multiplier;
     }
-    const currentStockBase = d.estU || 0;
-    const stockAtDeliveryBase = currentStockBase - consLeadTime;
-    const isCriticalRupture = stockAtDeliveryBase < 0;
-    const requiredStockBase = consLeadTime + consCoverage + consSafety;
-    const suggestionBase = Math.max(0, requiredStockBase - currentStockBase);
     
     const factor = manualFactors[d.code] !== undefined ? manualFactors[d.code] : (mbFactors[d.desc.toUpperCase().trim()] || d.fator || d.factor || 1);
+    
+    let totalTransitBoxes = 0;
+    transitColumns.forEach(colId => {
+      const qty = (manualTransit[d.code] && manualTransit[d.code][colId]) || 0;
+      totalTransitBoxes += qty;
+    });
+    const transitKg = totalTransitBoxes * factor;
+    
+    const currentStockBase = d.estU || 0;
+    const stockAtDeliveryBase = currentStockBase - consLeadTime + transitKg;
+    const isCriticalRupture = stockAtDeliveryBase < 0;
+    const requiredStockBase = consLeadTime + consCoverage + consSafety;
+    const suggestionBase = Math.max(0, requiredStockBase - currentStockBase - transitKg);
+    
     let suggestionDisplay = suggestionBase / factor;
     let stockAtDeliveryDisplay = stockAtDeliveryBase / factor;
     let currentStockDisplay = d.stock;
@@ -1147,6 +1204,13 @@ function renderOrderTab(){
     const trCls = isCriticalRupture ? 'style="background:var(--red-bg)"' : '';
     const factorInput = '<input type="number" class="tbl-factor-in" data-order-factor="'+d.code+'" value="'+factor+'" step="any" min="0.01">';
     const stockInput = '<input type="number" class="tbl-stock-in" data-order-stock="'+d.code+'" value="'+currentStockDisplay+'" step="any" min="0">';
+    
+    let transitInputsHtml = '';
+    transitColumns.forEach(colId => {
+      const val = (manualTransit[d.code] && manualTransit[d.code][colId]) !== undefined ? manualTransit[d.code][colId] : '';
+      transitInputsHtml += `<td class="num"><input type="number" class="tbl-transit-in" data-order-transit="${d.code}" data-col-id="${colId}" value="${val}" step="any" min="0" placeholder="0"></td>`;
+    });
+    
     const deliveryStockText = isCriticalRupture 
       ? '<span style="color:var(--red); font-weight:700;">⚠ Ruptura (' + stockAtDeliveryDisplay.toLocaleString('pt-BR') + ' cx)</span>'
       : stockAtDeliveryDisplay.toLocaleString('pt-BR') + ' cx';
@@ -1157,6 +1221,7 @@ function renderOrderTab(){
       '<td class="desc" ' + trCls + '>' + d.desc + '</td>' +
       '<td>' + d.unit + '</td>' +
       '<td class="num">' + stockInput + '</td>' +
+      transitInputsHtml +
       '<td class="num">' + deliveryStockText + '</td>' +
       '<td class="num" style="' + sugStyle + '">' + suggestionDisplay.toLocaleString('pt-BR') + ' cx</td>';
       
@@ -1165,12 +1230,14 @@ function renderOrderTab(){
   
   document.getElementById('oempty').style.display = hasAnySuggestion ? 'none' : 'block';
   
-  const activeFactorCode = activeEl ? activeEl.dataset.orderFactor : null;
   if (activeCode) {
     const nextEl = document.querySelector('input[data-order-stock="'+activeCode+'"]');
     if (nextEl) nextEl.focus();
   } else if (activeFactorCode) {
     const nextEl = document.querySelector('input[data-order-factor="'+activeFactorCode+'"]');
+    if (nextEl) nextEl.focus();
+  } else if (activeTransitCode && activeColId) {
+    const nextEl = document.querySelector('input[data-order-transit="'+activeTransitCode+'"][data-col-id="'+activeColId+'"]');
     if (nextEl) nextEl.focus();
   }
 }
@@ -1178,8 +1245,9 @@ function renderOrderTab(){
 document.getElementById('otbody').addEventListener('input', e => {
   const scode = e.target.dataset.orderStock;
   const fcode = e.target.dataset.orderFactor;
-  if(scode || fcode){
-    const code = scode || fcode;
+  const tcode = e.target.dataset.orderTransit;
+  if(scode || fcode || tcode){
+    const code = scode || fcode || tcode;
     const item = DATA.find(d => d.code === code);
     if(item){
       if(scode){
@@ -1200,6 +1268,15 @@ document.getElementById('otbody').addEventListener('input', e => {
       } else if(fcode){
         const val = e.target.value !== '' ? parseFloat(e.target.value) : 1;
         manualFactors[code] = val;
+      } else if(tcode){
+        const colId = e.target.dataset.colId;
+        if (!manualTransit[code]) manualTransit[code] = {};
+        const val = e.target.value !== '' ? parseFloat(e.target.value) : 0;
+        if (val > 0) {
+          manualTransit[code][colId] = val;
+        } else {
+          delete manualTransit[code][colId];
+        }
       }
 
       const tr = e.target.closest('tr');
@@ -1227,13 +1304,21 @@ document.getElementById('otbody').addEventListener('input', e => {
             consSafety += item.med[addDays(dDate, k).getDay()] * multiplier;
           }
           
+          const factor = manualFactors[item.code] !== undefined ? manualFactors[item.code] : (mbFactors[item.desc.toUpperCase().trim()] || item.fator || item.factor || 1);
+          
+          let totalTransitBoxes = 0;
+          transitColumns.forEach(colId => {
+            const qty = (manualTransit[item.code] && manualTransit[item.code][colId]) || 0;
+            totalTransitBoxes += qty;
+          });
+          const transitKg = totalTransitBoxes * factor;
+          
           const currentStockBase = item.estU || 0;
-          const stockAtDeliveryBase = currentStockBase - consLeadTime;
+          const stockAtDeliveryBase = currentStockBase - consLeadTime + transitKg;
           const isCriticalRupture = stockAtDeliveryBase < 0;
           const requiredStockBase = consLeadTime + consCoverage + consSafety;
-          const suggestionBase = Math.max(0, requiredStockBase - currentStockBase);
+          const suggestionBase = Math.max(0, requiredStockBase - currentStockBase - transitKg);
           
-          const factor = manualFactors[item.code] !== undefined ? manualFactors[item.code] : (mbFactors[item.desc.toUpperCase().trim()] || item.fator || item.factor || 1);
           let suggestionDisplay = suggestionBase / factor;
           let stockAtDeliveryDisplay = stockAtDeliveryBase / factor;
           
@@ -1244,7 +1329,7 @@ document.getElementById('otbody').addEventListener('input', e => {
             stockAtDeliveryDisplay = Math.round(stockAtDeliveryDisplay);
           }
           
-          const cellDelivery = tr.cells[4];
+          const cellDelivery = tr.cells[4 + transitColumns.length];
           if (cellDelivery) {
             cellDelivery.innerHTML = isCriticalRupture 
               ? '<span style="color:var(--red); font-weight:700;">⚠ Ruptura (' + stockAtDeliveryDisplay.toLocaleString('pt-BR') + ' cx)</span>'
@@ -1255,7 +1340,7 @@ document.getElementById('otbody').addEventListener('input', e => {
               tr.cells[1].style.background = '';
             }
           }
-          const cellSug = tr.cells[5];
+          const cellSug = tr.cells[5 + transitColumns.length];
           if (cellSug) {
             cellSug.textContent = suggestionDisplay.toLocaleString('pt-BR') + ' cx';
             const sugStyle = suggestionDisplay > 0 ? 'font-weight:700; color:var(--brand);' : 'color:var(--muted); opacity:0.6;';
@@ -1269,7 +1354,7 @@ document.getElementById('otbody').addEventListener('input', e => {
 });
 
 document.getElementById('otbody').addEventListener('blur', e => {
-  if (e.target.dataset.orderStock || e.target.dataset.orderFactor) {
+  if (e.target.dataset.orderStock || e.target.dataset.orderFactor || e.target.dataset.orderTransit) {
     renderOrderTab();
   }
 }, true);
@@ -1330,11 +1415,16 @@ document.getElementById('copy-order-btn').onclick = () => {
       consSafety += d.med[addDays(dDate, k).getDay()] * multiplier;
     }
     
+    let totalTransitBoxes = 0;
+    transitColumns.forEach(colId => {
+      const qty = (manualTransit[d.code] && manualTransit[d.code][colId]) || 0;
+      totalTransitBoxes += qty;
+    });
+    const factor = manualFactors[d.code] !== undefined ? manualFactors[d.code] : (mbFactors[d.desc.toUpperCase().trim()] || d.fator || d.factor || 1);
+    const transitKg = totalTransitBoxes * factor;
     const currentStockBase = d.estU || 0;
     const requiredStockBase = consLeadTime + consCoverage + consSafety;
-    const suggestionBase = Math.max(0, requiredStockBase - currentStockBase);
-    
-    const factor = manualFactors[d.code] !== undefined ? manualFactors[d.code] : (mbFactors[d.desc.toUpperCase().trim()] || d.fator || d.factor || 1);
+    const suggestionBase = Math.max(0, requiredStockBase - currentStockBase - transitKg);
     let suggestionDisplay = Math.ceil(suggestionBase / factor);
     
     if (suggestionDisplay > 0) {
