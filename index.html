@@ -1128,15 +1128,11 @@ function renderOrderTab(){
     let stockAtDeliveryDisplay = stockAtDeliveryBase / factor;
     let currentStockDisplay = d.stock;
     
-    if (d.code === '7DOUGH' || d.code === '8HDOUGH') {
-      suggestionDisplay = Math.ceil(suggestionDisplay * 10) / 10;
-      stockAtDeliveryDisplay = parseFloat(stockAtDeliveryDisplay.toFixed(1));
-    } else if (BANDEJA[d.code]) {
-      suggestionDisplay = Math.ceil(suggestionDisplay);
-      stockAtDeliveryDisplay = Math.ceil(stockAtDeliveryDisplay);
+    suggestionDisplay = Math.ceil(suggestionDisplay);
+    if (stockAtDeliveryDisplay < 0) {
+      stockAtDeliveryDisplay = Math.floor(stockAtDeliveryDisplay);
     } else {
-      suggestionDisplay = Math.ceil(suggestionDisplay * 100) / 100;
-      stockAtDeliveryDisplay = parseFloat(stockAtDeliveryDisplay.toFixed(2));
+      stockAtDeliveryDisplay = Math.round(stockAtDeliveryDisplay);
     }
     
     hasAnySuggestion = true;
@@ -1233,15 +1229,11 @@ document.getElementById('otbody').addEventListener('input', e => {
           let suggestionDisplay = suggestionBase / factor;
           let stockAtDeliveryDisplay = stockAtDeliveryBase / factor;
           
-          if (item.code === '7DOUGH' || item.code === '8HDOUGH') {
-            suggestionDisplay = Math.ceil(suggestionDisplay * 10) / 10;
-            stockAtDeliveryDisplay = parseFloat(stockAtDeliveryDisplay.toFixed(1));
-          } else if (BANDEJA[item.code]) {
-            suggestionDisplay = Math.ceil(suggestionDisplay);
-            stockAtDeliveryDisplay = Math.ceil(stockAtDeliveryDisplay);
+          suggestionDisplay = Math.ceil(suggestionDisplay);
+          if (stockAtDeliveryDisplay < 0) {
+            stockAtDeliveryDisplay = Math.floor(stockAtDeliveryDisplay);
           } else {
-            suggestionDisplay = Math.ceil(suggestionDisplay * 100) / 100;
-            stockAtDeliveryDisplay = parseFloat(stockAtDeliveryDisplay.toFixed(2));
+            stockAtDeliveryDisplay = Math.round(stockAtDeliveryDisplay);
           }
           
           const cellDelivery = tr.cells[4];
