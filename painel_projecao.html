@@ -478,6 +478,8 @@ function switchTab(tabId) {
     document.getElementById('results').style.display = 'block';
     document.getElementById('tab-order').style.display = 'none';
     document.getElementById('results').scrollIntoView({behavior:'smooth',block:'start'});
+    renderTable();
+    updateProdVisibility();
   } else if (tabId === 'order') {
     document.querySelector('header').style.display = 'none';
     document.getElementById('dropzone').style.display = 'none';
