@@ -201,6 +201,7 @@
   <div class="tabs-nav" style="display:flex; justify-content:center; gap:16px; position:relative;">
     <button class="tab-btn active" data-tab="upload">Carregar Relatórios</button>
     <button class="tab-btn" data-tab="results" id="tab-results-btn" style="display:none">Ver Projeção</button>
+    <button class="tab-btn" data-tab="order" id="tab-order-btn" style="display:none">Sugestão de Pedido</button>
     <button id="theme-toggle" class="theme-btn" style="position:absolute; right:0; top:4px; background:none; border:1px solid var(--line); color:var(--muted); font-size:13px; font-weight:600; padding:6px 12px; border-radius:20px; cursor:pointer; display:flex; align-items:center; gap:6px; transition:0.15s;">
       <span class="theme-icon">🌙</span> <span class="theme-text">Escuro</span>
     </button>
@@ -282,6 +283,50 @@
         <tbody id="tbody"></tbody>
       </table>
       <div class="empty" id="empty" style="display:none">Nenhum item nesta categoria.</div>
+    </div>
+  </section>
+
+  <section id="tab-order" style="display:none; background:var(--card); padding:24px; border-radius:12px; box-shadow:var(--shadow); margin-top:20px;">
+    <div class="rhead" style="margin-bottom:20px;">
+      <img class="rtile" src="logos_svg/DPZ_2025_Logo_Tile_Blue_RGB.svg" alt="Domino's">
+      <h2>Sugestão de Pedido de Compras</h2>
+      <span class="info" id="oinfo"></span>
+    </div>
+    <div class="card" style="padding:20px; border:1px solid var(--line); border-radius:8px; margin-bottom:24px; background:var(--bg);">
+      <div style="display:flex; flex-wrap:wrap; gap:20px; align-items:flex-end;">
+        <label style="display:flex; flex-direction:column; gap:6px; font-size:13px; font-weight:600; color:var(--muted);">
+          Data do Pedido
+          <input type="date" id="orderDate" style="padding:8px 12px; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--ink); font-family:inherit; font-size:14px;">
+        </label>
+        <label style="display:flex; flex-direction:column; gap:6px; font-size:13px; font-weight:600; color:var(--muted);">
+          Data da Entrega
+          <input type="date" id="deliveryDate" style="padding:8px 12px; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--ink); font-family:inherit; font-size:14px;">
+        </label>
+        <label style="display:flex; flex-direction:column; gap:6px; font-size:13px; font-weight:600; color:var(--muted);">
+          Margem de Segurança (dias)
+          <input type="number" id="safetyDays" min="0" max="7" step="1" value="0" style="width:100px; padding:8px 12px; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--ink); font-family:inherit; font-size:14px; text-align:center;">
+        </label>
+        <button id="copy-order-btn" style="margin-left:auto; background:var(--brand); color:#fff; border:none; padding:10px 20px; border-radius:20px; font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:8px; transition:0.15s;">
+          📋 Copiar WhatsApp
+        </button>
+      </div>
+      <div id="order-details-info" style="margin-top:16px; font-size:13px; color:var(--muted); line-height:1.6; border-top:1px solid var(--line); padding-top:12px;"></div>
+    </div>
+    <div class="filters" id="order-filters" style="margin-bottom:20px;"></div>
+    <div class="tablewrap">
+      <table id="otbl" style="width:100%; border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th style="text-align:left;">Descrição</th>
+            <th>Unidade</th>
+            <th style="text-align:right; width:120px;">Estoque Atual</th>
+            <th style="text-align:right; width:150px;">Estoque na Entrega</th>
+            <th style="text-align:right; width:150px;">Sugestão de Pedido</th>
+          </tr>
+        </thead>
+        <tbody id="otbody"></tbody>
+      </table>
+      <div class="empty" id="oempty" style="display:none; text-align:center; padding:30px; color:var(--muted);">Nenhum item com compra sugerida nesta categoria.</div>
     </div>
   </section>
 </div>
@@ -379,6 +424,7 @@ document.addEventListener('click', e=>{
     if(k==='trend'){
       document.getElementById('results').style.display='none';
       document.getElementById('tab-results-btn').style.display='none';
+      document.getElementById('tab-order-btn').style.display='none';
       switchTab('upload');
     } else {
       tryRun();
@@ -396,11 +442,20 @@ function switchTab(tabId) {
     document.querySelector('header').style.display = 'block';
     document.getElementById('dropzone').style.display = 'grid';
     document.getElementById('results').style.display = 'none';
+    document.getElementById('tab-order').style.display = 'none';
   } else if (tabId === 'results') {
     document.querySelector('header').style.display = 'none';
     document.getElementById('dropzone').style.display = 'none';
     document.getElementById('results').style.display = 'block';
+    document.getElementById('tab-order').style.display = 'none';
     document.getElementById('results').scrollIntoView({behavior:'smooth',block:'start'});
+  } else if (tabId === 'order') {
+    document.querySelector('header').style.display = 'none';
+    document.getElementById('dropzone').style.display = 'none';
+    document.getElementById('results').style.display = 'none';
+    document.getElementById('tab-order').style.display = 'block';
+    document.getElementById('tab-order').scrollIntoView({behavior:'smooth',block:'start'});
+    renderOrderTab();
   }
 }
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -579,6 +634,17 @@ function run(){
       META.bad.map(b=>b.desc+' → "'+b.raw+'"').join(' · ')+'. Corrija a coluna <i>Ending Inventory Qty</i> no arquivo.';
   } else banner.style.display='none';
   document.getElementById('tab-results-btn').style.display='inline-block';
+  document.getElementById('tab-order-btn').style.display='inline-block';
+  
+  if (META.dataBase) {
+    const orderInput = document.getElementById('orderDate');
+    const deliveryInput = document.getElementById('deliveryDate');
+    if (!orderInput.value) {
+      orderInput.value = META.dataBase.toISOString().slice(0, 10);
+      const delDate = new Date(META.dataBase.getTime() + 2 * 86400000);
+      deliveryInput.value = delDate.toISOString().slice(0, 10);
+    }
+  }
   switchTab('results');
 }
 
@@ -851,6 +917,238 @@ document.getElementById('tbody').addEventListener('input', e=>{
     }
   }
 });
+
+// Order Tab Logics
+let orderSelCats = new Set();
+function buildOrderFilters(){
+  const counts={}; DATA.forEach(d=>counts[d.cat]=(counts[d.cat]||0)+1);
+  const cats = CAT_ORDER.filter(c=>counts[c]);
+  const box=document.getElementById('order-filters');
+  if (box.innerHTML !== '') return;
+  
+  let allActive = orderSelCats.size === 0;
+  let html = '<span class="chip all' + (allActive ? ' active' : '') + '" data-ocat="__all">Todas</span>';
+  cats.forEach(c=> {
+    let active = orderSelCats.has(c);
+    html+='<span class="chip' + (active ? ' active' : '') + '" data-ocat="'+c+'">'+c+'</span>';
+  });
+  box.innerHTML=html;
+  box.querySelectorAll('.chip').forEach(ch=>ch.onclick=()=>{
+    const c=ch.dataset.ocat;
+    if(c==='__all'){ orderSelCats.clear(); }
+    else { ch.classList.contains('active')?orderSelCats.delete(c):orderSelCats.add(c); }
+    box.querySelectorAll('.chip').forEach(x=>{
+      if(x.dataset.ocat==='__all') x.classList.toggle('active', orderSelCats.size===0);
+      else x.classList.toggle('active', orderSelCats.has(x.dataset.ocat));
+    });
+    renderOrderTab();
+  });
+}
+
+function renderOrderTab(){
+  const oDateVal = document.getElementById('orderDate').value;
+  const dDateVal = document.getElementById('deliveryDate').value;
+  const safetyVal = parseInt(document.getElementById('safetyDays').value, 10) || 0;
+  if (!oDateVal || !dDateVal) return;
+  
+  const oDate = new Date(oDateVal + 'T00:00:00');
+  const dDate = new Date(dDateVal + 'T00:00:00');
+  const leadTimeDays = Math.max(0, diffDays(oDate, dDate));
+  const nextDelDate = addDays(dDate, 7);
+  
+  const detailsDiv = document.getElementById('order-details-info');
+  detailsDiv.innerHTML = 
+    'Lead Time: <b>' + leadTimeDays + ' dias</b> (Consumo estimado entre ' + oDate.toLocaleDateString('pt-BR') + ' e ' + addDays(dDate, -1).toLocaleDateString('pt-BR') + ').<br>' +
+    'Período de Cobertura: <b>7 dias</b> (De ' + dDate.toLocaleDateString('pt-BR') + ' até ' + addDays(nextDelDate, -1).toLocaleDateString('pt-BR') + ').<br>' +
+    (safetyVal > 0 ? 'Margem de Segurança: <b>' + safetyVal + ' dias</b> (' + dDate.toLocaleDateString('pt-BR') + ' a ' + addDays(dDate, safetyVal - 1).toLocaleDateString('pt-BR') + ').' : 'Sem margem de segurança extra.');
+  
+  const df = META.dataArq ? META.dataArq.toLocaleDateString('pt-BR') : '—';
+  document.getElementById('oinfo').innerHTML = 'Loja <b>'+META.loja+'</b> &middot; arquivo '+df+' &middot; ' + DATA.length + ' insumos';
+
+  buildOrderFilters();
+  
+  const tb = document.getElementById('otbody'); tb.innerHTML = '';
+  let items = orderSelCats.size ? DATA.filter(d=>orderSelCats.has(d.cat)) : DATA.slice();
+  let hasAnySuggestion = false;
+  const activeEl = document.activeElement;
+  const activeCode = activeEl ? activeEl.dataset.orderStock : null;
+
+  items.forEach(d => {
+    if (!d.med) return;
+    
+    let consLeadTime = 0;
+    for (let k = 0; k < leadTimeDays; k++) {
+      consLeadTime += d.med[addDays(oDate, k).getDay()];
+    }
+    let consCoverage = 0;
+    for (let k = 0; k < 7; k++) {
+      consCoverage += d.med[addDays(dDate, k).getDay()];
+    }
+    let consSafety = 0;
+    for (let k = 0; k < safetyVal; k++) {
+      consSafety += d.med[addDays(dDate, k).getDay()];
+    }
+    
+    const currentStockBase = d.estU || 0;
+    const stockAtDeliveryBase = Math.max(0, currentStockBase - consLeadTime);
+    const isCriticalRupture = (currentStockBase - consLeadTime) < 0;
+    const requiredStockBase = consCoverage + consSafety;
+    const suggestionBase = Math.max(0, requiredStockBase - stockAtDeliveryBase);
+    
+    const factor = d.fator || d.factor || 1;
+    let suggestionDisplay = suggestionBase / factor;
+    let stockAtDeliveryDisplay = stockAtDeliveryBase / factor;
+    let currentStockDisplay = d.stock;
+    
+    if (d.code === '7DOUGH' || d.code === '8HDOUGH') {
+      suggestionDisplay = Math.ceil(suggestionDisplay * 10) / 10;
+      stockAtDeliveryDisplay = parseFloat(stockAtDeliveryDisplay.toFixed(1));
+    } else if (BANDEJA[d.code]) {
+      suggestionDisplay = Math.ceil(suggestionDisplay);
+      stockAtDeliveryDisplay = Math.ceil(stockAtDeliveryDisplay);
+    } else {
+      suggestionDisplay = Math.ceil(suggestionDisplay * 100) / 100;
+      stockAtDeliveryDisplay = parseFloat(stockAtDeliveryDisplay.toFixed(2));
+    }
+    
+    if (suggestionDisplay <= 0) return;
+    hasAnySuggestion = true;
+    
+    const tr = document.createElement('tr');
+    const trCls = isCriticalRupture ? 'style="background:var(--red-bg)"' : '';
+    const stockInput = '<input type="number" class="tbl-stock-in" data-order-stock="'+d.code+'" value="'+currentStockDisplay+'" step="any" min="0">';
+    const deliveryStockText = isCriticalRupture 
+      ? '<span style="color:var(--red); font-weight:700;">⚠ Ruptura (' + stockAtDeliveryDisplay.toLocaleString('pt-BR') + ')</span>'
+      : stockAtDeliveryDisplay.toLocaleString('pt-BR');
+      
+    tr.innerHTML = 
+      '<td class="desc" ' + trCls + '>' + d.desc + '</td>' +
+      '<td>' + d.unit + '</td>' +
+      '<td class="num">' + stockInput + '</td>' +
+      '<td class="num">' + deliveryStockText + '</td>' +
+      '<td class="num" style="font-weight:700; color:var(--brand);">' + suggestionDisplay.toLocaleString('pt-BR') + '</td>';
+      
+    tb.appendChild(tr);
+  });
+  
+  document.getElementById('oempty').style.display = hasAnySuggestion ? 'none' : 'block';
+  
+  if (activeCode) {
+    const nextEl = document.querySelector('input[data-order-stock="'+activeCode+'"]');
+    if (nextEl) nextEl.focus();
+  }
+}
+
+document.getElementById('otbody').addEventListener('input', e => {
+  const scode = e.target.dataset.orderStock;
+  if(scode){
+    manualStock[scode] = e.target.value;
+    const val = e.target.value !== '' ? parseFloat(e.target.value) : 0;
+    const item = DATA.find(d => d.code === scode);
+    if(item){
+      item.stock = val;
+      item.estU = val * (item.factor || 1);
+      const res = calcularDiasEstoque(item.estU, item.med, META.dataBase);
+      item.days = res.dias;
+      item.date = res.dfim;
+      item.wd = res.wdfim;
+      item.obs = res.obs;
+      
+      const tblInput = document.querySelector('input[data-tbl-stock="'+scode+'"]');
+      if (tblInput) tblInput.value = e.target.value;
+      const doughInput = document.querySelector('input[data-stock="'+scode+'"]');
+      if (doughInput) doughInput.value = e.target.value;
+
+      renderOrderTab();
+      computeProd();
+    }
+  }
+});
+
+document.getElementById('orderDate').addEventListener('change', renderOrderTab);
+document.getElementById('deliveryDate').addEventListener('change', renderOrderTab);
+document.getElementById('safetyDays').addEventListener('input', renderOrderTab);
+
+document.getElementById('copy-order-btn').onclick = () => {
+  const oDateVal = document.getElementById('orderDate').value;
+  const dDateVal = document.getElementById('deliveryDate').value;
+  const safetyVal = parseInt(document.getElementById('safetyDays').value, 10) || 0;
+  if (!oDateVal || !dDateVal) return;
+  
+  const oDate = new Date(oDateVal + 'T00:00:00');
+  const dDate = new Date(dDateVal + 'T00:00:00');
+  const leadTimeDays = Math.max(0, diffDays(oDate, dDate));
+  
+  let text = '🛒 *Sugestão de Pedido de Compras — Domino\'s*\n';
+  text += '📅 *Pedido:* ' + oDate.toLocaleDateString('pt-BR') + ' | *Entrega:* ' + dDate.toLocaleDateString('pt-BR') + '\n';
+  if (safetyVal > 0) text += '🛡️ *Segurança:* ' + safetyVal + ' dias\n';
+  text += '------------------------------------------\n';
+  
+  const grouped = {};
+  DATA.forEach(d => {
+    if (!d.med) return;
+    
+    let consLeadTime = 0;
+    for (let k = 0; k < leadTimeDays; k++) {
+      consLeadTime += d.med[addDays(oDate, k).getDay()];
+    }
+    let consCoverage = 0;
+    for (let k = 0; k < 7; k++) {
+      consCoverage += d.med[addDays(dDate, k).getDay()];
+    }
+    let consSafety = 0;
+    for (let k = 0; k < safetyVal; k++) {
+      consSafety += d.med[addDays(dDate, k).getDay()];
+    }
+    
+    const currentStockBase = d.estU || 0;
+    const stockAtDeliveryBase = Math.max(0, currentStockBase - consLeadTime);
+    const requiredStockBase = consCoverage + consSafety;
+    const suggestionBase = Math.max(0, requiredStockBase - stockAtDeliveryBase);
+    
+    const factor = d.fator || d.factor || 1;
+    let suggestionDisplay = suggestionBase / factor;
+    
+    if (d.code === '7DOUGH' || d.code === '8HDOUGH') {
+      suggestionDisplay = Math.ceil(suggestionDisplay * 10) / 10;
+    } else if (BANDEJA[d.code]) {
+      suggestionDisplay = Math.ceil(suggestionDisplay);
+    } else {
+      suggestionDisplay = Math.ceil(suggestionDisplay * 100) / 100;
+    }
+    
+    if (suggestionDisplay > 0) {
+      if (!grouped[d.cat]) grouped[d.cat] = [];
+      grouped[d.cat].push(d.desc + ': *' + suggestionDisplay.toLocaleString('pt-BR') + '* ' + d.unit);
+    }
+  });
+  
+  let hasItems = false;
+  CAT_ORDER.forEach(cat => {
+    if (grouped[cat] && grouped[cat].length > 0) {
+      hasItems = true;
+      text += '\n📦 *' + cat.toUpperCase() + '*\n';
+      grouped[cat].forEach(item => {
+        text += '• ' + item + '\n';
+      });
+    }
+  });
+  
+  if (!hasItems) text += '\nNenhum item recomendado para compra.';
+  
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copy-order-btn');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '✅ Copiado!';
+    btn.style.background = 'var(--ok)';
+    setTimeout(() => {
+      btn.innerHTML = originalText;
+      btn.style.background = 'var(--brand)';
+    }, 2000);
+  }).catch(err => {
+    alert('Erro ao copiar para o WhatsApp: ' + err);
+  });
+};
 
 // Theme Selector Logic
 const themeToggle = document.getElementById('theme-toggle');
