@@ -1011,7 +1011,6 @@ function renderOrderTab(){
       stockAtDeliveryDisplay = parseFloat(stockAtDeliveryDisplay.toFixed(2));
     }
     
-    if (suggestionDisplay <= 0) return;
     hasAnySuggestion = true;
     
     const tr = document.createElement('tr');
@@ -1021,12 +1020,13 @@ function renderOrderTab(){
       ? '<span style="color:var(--red); font-weight:700;">⚠ Ruptura (' + stockAtDeliveryDisplay.toLocaleString('pt-BR') + ')</span>'
       : stockAtDeliveryDisplay.toLocaleString('pt-BR');
       
+    const sugStyle = suggestionDisplay > 0 ? 'font-weight:700; color:var(--brand);' : 'color:var(--muted); opacity:0.6;';
     tr.innerHTML = 
       '<td class="desc" ' + trCls + '>' + d.desc + '</td>' +
       '<td>' + d.unit + '</td>' +
       '<td class="num">' + stockInput + '</td>' +
       '<td class="num">' + deliveryStockText + '</td>' +
-      '<td class="num" style="font-weight:700; color:var(--brand);">' + suggestionDisplay.toLocaleString('pt-BR') + '</td>';
+      '<td class="num" style="' + sugStyle + '">' + suggestionDisplay.toLocaleString('pt-BR') + '</td>';
       
     tb.appendChild(tr);
   });
