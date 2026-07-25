@@ -194,6 +194,22 @@
     border-color: var(--brand);
     outline: none;
   }
+  .tbl-factor-in {
+    width: 70px;
+    padding: 4px 6px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--card);
+    color: var(--ink);
+    text-align: center;
+    font-family: inherit;
+    font-size: 14px;
+    transition: border-color 0.15s;
+  }
+  .tbl-factor-in:focus {
+    border-color: var(--brand);
+    outline: none;
+  }
 </style>
 </head>
 <body>
@@ -317,6 +333,7 @@
       <table id="otbl" style="width:100%; border-collapse:collapse;">
         <thead>
           <tr>
+            <th style="text-align:center; width:100px;">Fator MB</th>
             <th style="text-align:left;">Descrição</th>
             <th>Unidade</th>
             <th style="text-align:right; width:120px;">Estoque Atual</th>
@@ -482,9 +499,90 @@ const toNum = v => { const n=parseFloat(v); return isNaN(n)?0:n; };
 let DATA = [];     // linhas da projeção
 let META = {};
 
-function tryRun(){
-  if(!buffers.trend) return;   // só o Item Trend é obrigatório; Variance é opcional
-  try { run(); } catch(err){ alert('Erro ao ler os relatórios: '+err.message); console.error(err); }
+let mbFactors = {};
+const manualFactors = {};
+
+const DEFAULT_MB_FACTORS = {
+  "FRANGO DESFIADO": 5,
+  "FRANGO GRELHADO": 4.8,
+  "MUÇARELA": 22.5,
+  "PANE ROMANO": 32,
+  "BACON": 4,
+  "CALABRESA": 3,
+  "CARNE SECA": 8,
+  "CREAM CHEESE": 4.8,
+  "CREME CATUPIRY": 6.1,
+  "GORGONZOLA": 3,
+  "MOLHO PIZZA": 32.4,
+  "MUÇARELA DE BÚFALA": 0.7,
+  "OVO DE CODORNA": 10,
+  "PEPERONI": 3,
+  "PRESUNTO": 3,
+  "REQUEIJÃO": 6,
+  "MAIONESE GRILL": 0.35,
+  "MOLHO CHIPOTLE": 0.35,
+  "MOLHO CHEDDAR": 6,
+  "CAIXA 30CM - 12": 50,
+  "CAIXA 35CM - 14": 50,
+  "CAIXA 40CM - 16": 50,
+  "CAIXA 7 - 18CM": 100,
+  "CAIXA DOMINIX": 50,
+  "CAIXA PAN - 30CM": 50,
+  "CAIXA DOMINOS BOX": 100,
+  "AÇUCAR C/ CANELA": 2.2,
+  "ALHO": 0.5,
+  "AZEITE": 6,
+  "AZEITONAS PRETAS": 10,
+  "CALDA BRIGADEIRO": 6.3,
+  "CHAMPIGNON": 4,
+  "CHOCOLATE GRANULADO": 1,
+  "CONFEITOS DE CHOCOLATE": 4,
+  "CREME BAUNILHA": 9,
+  "DOCE DE LEITE": 4.8,
+  "FUBA": 10,
+  "GORDURA VEGETAL": 2.5,
+  "MILHO": 4.8,
+  "ORÉGANO": 0.25,
+  "OVOMALTINE": 4.2,
+  "PARMESÃO": 8,
+  "Pasta de alho": 4,
+  "MOLHO THAI SWEET CHILI": 0.1,
+  "CREME CULINARIO": 0.245,
+  "NUTELLA": 1.01
+};
+
+async function loadMBFactors() {
+  mbFactors = Object.assign({}, DEFAULT_MB_FACTORS);
+  try {
+    const res = await fetch('referencia_embalagens_mb.xlsx');
+    if (!res.ok) return;
+    const arrayBuffer = await res.arrayBuffer();
+    const data = new Uint8Array(arrayBuffer);
+    const workbook = XLSX.read(data, {type: 'array'});
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, {header: 1});
+    for (let i = 1; i < rows.length; i++) {
+      const factor = parseFloat(rows[i][0]);
+      const name = String(rows[i][1] || '').trim().toUpperCase();
+      if (name && !isNaN(factor)) {
+        mbFactors[name] = factor;
+      }
+    }
+    console.log('Fatores de embalagem carregados do Excel:', mbFactors);
+  } catch(e) {
+    console.warn('Não foi possível carregar o arquivo Excel de referência, usando padrões:', e);
+  }
+}
+
+async function tryRun(){
+  if(!buffers.trend) return;
+  try {
+    await loadMBFactors();
+    run();
+  } catch(err){
+    alert('Erro ao ler os relatórios: '+err.message);
+    console.error(err);
+  }
 }
 
 function calcularDiasEstoque(stock, med, dataBase){
@@ -1024,7 +1122,7 @@ function renderOrderTab(){
     const requiredStockBase = consLeadTime + consCoverage + consSafety;
     const suggestionBase = Math.max(0, requiredStockBase - currentStockBase);
     
-    const factor = d.fator || d.factor || 1;
+    const factor = manualFactors[d.code] !== undefined ? manualFactors[d.code] : (mbFactors[d.desc.toUpperCase().trim()] || d.fator || d.factor || 1);
     let suggestionDisplay = suggestionBase / factor;
     let stockAtDeliveryDisplay = stockAtDeliveryBase / factor;
     let currentStockDisplay = d.stock;
@@ -1044,49 +1142,62 @@ function renderOrderTab(){
     
     const tr = document.createElement('tr');
     const trCls = isCriticalRupture ? 'style="background:var(--red-bg)"' : '';
+    const factorInput = '<input type="number" class="tbl-factor-in" data-order-factor="'+d.code+'" value="'+factor+'" step="any" min="0.01">';
     const stockInput = '<input type="number" class="tbl-stock-in" data-order-stock="'+d.code+'" value="'+currentStockDisplay+'" step="any" min="0">';
     const deliveryStockText = isCriticalRupture 
-      ? '<span style="color:var(--red); font-weight:700;">⚠ Ruptura (' + stockAtDeliveryDisplay.toLocaleString('pt-BR') + ')</span>'
-      : stockAtDeliveryDisplay.toLocaleString('pt-BR');
+      ? '<span style="color:var(--red); font-weight:700;">⚠ Ruptura (' + stockAtDeliveryDisplay.toLocaleString('pt-BR') + ' cx)</span>'
+      : stockAtDeliveryDisplay.toLocaleString('pt-BR') + ' cx';
       
     const sugStyle = suggestionDisplay > 0 ? 'font-weight:700; color:var(--brand);' : 'color:var(--muted); opacity:0.6;';
     tr.innerHTML = 
+      '<td class="num">' + factorInput + '</td>' +
       '<td class="desc" ' + trCls + '>' + d.desc + '</td>' +
       '<td>' + d.unit + '</td>' +
       '<td class="num">' + stockInput + '</td>' +
       '<td class="num">' + deliveryStockText + '</td>' +
-      '<td class="num" style="' + sugStyle + '">' + suggestionDisplay.toLocaleString('pt-BR') + '</td>';
+      '<td class="num" style="' + sugStyle + '">' + suggestionDisplay.toLocaleString('pt-BR') + ' cx</td>';
       
     tb.appendChild(tr);
   });
   
   document.getElementById('oempty').style.display = hasAnySuggestion ? 'none' : 'block';
   
+  const activeFactorCode = activeEl ? activeEl.dataset.orderFactor : null;
   if (activeCode) {
     const nextEl = document.querySelector('input[data-order-stock="'+activeCode+'"]');
+    if (nextEl) nextEl.focus();
+  } else if (activeFactorCode) {
+    const nextEl = document.querySelector('input[data-order-factor="'+activeFactorCode+'"]');
     if (nextEl) nextEl.focus();
   }
 }
 
 document.getElementById('otbody').addEventListener('input', e => {
   const scode = e.target.dataset.orderStock;
-  if(scode){
-    manualStock[scode] = e.target.value;
-    const val = e.target.value !== '' ? parseFloat(e.target.value) : 0;
-    const item = DATA.find(d => d.code === scode);
+  const fcode = e.target.dataset.orderFactor;
+  if(scode || fcode){
+    const code = scode || fcode;
+    const item = DATA.find(d => d.code === code);
     if(item){
-      item.stock = val;
-      item.estU = val * (item.factor || 1);
-      const res = calcularDiasEstoque(item.estU, item.med, META.dataBase);
-      item.days = res.dias;
-      item.date = res.dfim;
-      item.wd = res.wdfim;
-      item.obs = res.obs;
-      
-      const tblInput = document.querySelector('input[data-tbl-stock="'+scode+'"]');
-      if (tblInput) tblInput.value = e.target.value;
-      const doughInput = document.querySelector('input[data-stock="'+scode+'"]');
-      if (doughInput) doughInput.value = e.target.value;
+      if(scode){
+        manualStock[code] = e.target.value;
+        const val = e.target.value !== '' ? parseFloat(e.target.value) : 0;
+        item.stock = val;
+        item.estU = val * (item.factor || 1);
+        const res = calcularDiasEstoque(item.estU, item.med, META.dataBase);
+        item.days = res.dias;
+        item.date = res.dfim;
+        item.wd = res.wdfim;
+        item.obs = res.obs;
+        
+        const tblInput = document.querySelector('input[data-tbl-stock="'+code+'"]');
+        if (tblInput) tblInput.value = e.target.value;
+        const doughInput = document.querySelector('input[data-stock="'+code+'"]');
+        if (doughInput) doughInput.value = e.target.value;
+      } else if(fcode){
+        const val = e.target.value !== '' ? parseFloat(e.target.value) : 1;
+        manualFactors[code] = val;
+      }
 
       const tr = e.target.closest('tr');
       if (tr) {
@@ -1117,7 +1228,7 @@ document.getElementById('otbody').addEventListener('input', e => {
           const requiredStockBase = consLeadTime + consCoverage + consSafety;
           const suggestionBase = Math.max(0, requiredStockBase - currentStockBase);
           
-          const factor = item.fator || item.factor || 1;
+          const factor = manualFactors[item.code] !== undefined ? manualFactors[item.code] : (mbFactors[item.desc.toUpperCase().trim()] || item.fator || item.factor || 1);
           let suggestionDisplay = suggestionBase / factor;
           let stockAtDeliveryDisplay = stockAtDeliveryBase / factor;
           
@@ -1132,21 +1243,21 @@ document.getElementById('otbody').addEventListener('input', e => {
             stockAtDeliveryDisplay = parseFloat(stockAtDeliveryDisplay.toFixed(2));
           }
           
-          const cellDelivery = tr.cells[3];
+          const cellDelivery = tr.cells[4];
           if (cellDelivery) {
             cellDelivery.innerHTML = isCriticalRupture 
-              ? '<span style="color:var(--red); font-weight:700;">⚠ Ruptura (' + stockAtDeliveryDisplay.toLocaleString('pt-BR') + ')</span>'
-              : stockAtDeliveryDisplay.toLocaleString('pt-BR');
+              ? '<span style="color:var(--red); font-weight:700;">⚠ Ruptura (' + stockAtDeliveryDisplay.toLocaleString('pt-BR') + ' cx)</span>'
+              : stockAtDeliveryDisplay.toLocaleString('pt-BR') + ' cx';
             if (isCriticalRupture) {
-              tr.cells[0].style.background = 'var(--red-bg)';
+              tr.cells[1].style.background = 'var(--red-bg)';
             } else {
-              tr.cells[0].style.background = '';
+              tr.cells[1].style.background = '';
             }
           }
-          const cellSug = tr.cells[4];
+          const cellSug = tr.cells[5];
           if (cellSug) {
-            cellSug.textContent = suggestionDisplay.toLocaleString('pt-BR');
-            const sugStyle = suggestionDisplay > 0 ? 'font-weight:700; color:var(--brand); opacity:1;' : 'color:var(--muted); opacity:0.6;';
+            cellSug.textContent = suggestionDisplay.toLocaleString('pt-BR') + ' cx';
+            const sugStyle = suggestionDisplay > 0 ? 'font-weight:700; color:var(--brand);' : 'color:var(--muted); opacity:0.6;';
             cellSug.style = sugStyle;
           }
         }
@@ -1157,7 +1268,7 @@ document.getElementById('otbody').addEventListener('input', e => {
 });
 
 document.getElementById('otbody').addEventListener('blur', e => {
-  if (e.target.dataset.orderStock) {
+  if (e.target.dataset.orderStock || e.target.dataset.orderFactor) {
     renderOrderTab();
   }
 }, true);
