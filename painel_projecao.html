@@ -194,6 +194,22 @@
     border-color: var(--brand);
     outline: none;
   }
+  .tbl-factor-in {
+    width: 70px;
+    padding: 4px 6px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--card);
+    color: var(--ink);
+    text-align: center;
+    font-family: inherit;
+    font-size: 14px;
+    transition: border-color 0.15s;
+  }
+  .tbl-factor-in:focus {
+    border-color: var(--brand);
+    outline: none;
+  }
 </style>
 </head>
 <body>
@@ -306,6 +322,10 @@
           Margem de Segurança (dias)
           <input type="number" id="safetyDays" min="0" max="7" step="1" value="0" style="width:100px; padding:8px 12px; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--ink); font-family:inherit; font-size:14px; text-align:center;">
         </label>
+        <label style="display:flex; flex-direction:column; gap:6px; font-size:13px; font-weight:600; color:var(--muted);">
+          Incremento de Consumo (%)
+          <input type="number" id="incrementPercent" min="-100" max="500" step="1" value="0" style="width:100px; padding:8px 12px; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--ink); font-family:inherit; font-size:14px; text-align:center;">
+        </label>
         <button id="copy-order-btn" style="margin-left:auto; background:var(--brand); color:#fff; border:none; padding:10px 20px; border-radius:20px; font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:8px; transition:0.15s;">
           📋 Copiar WhatsApp
         </button>
@@ -317,6 +337,7 @@
       <table id="otbl" style="width:100%; border-collapse:collapse;">
         <thead>
           <tr>
+            <th style="text-align:center; width:100px;">Fator MB</th>
             <th style="text-align:left;">Descrição</th>
             <th>Unidade</th>
             <th style="text-align:right; width:120px;">Estoque Atual</th>
@@ -482,9 +503,91 @@ const toNum = v => { const n=parseFloat(v); return isNaN(n)?0:n; };
 let DATA = [];     // linhas da projeção
 let META = {};
 
-function tryRun(){
-  if(!buffers.trend) return;   // só o Item Trend é obrigatório; Variance é opcional
-  try { run(); } catch(err){ alert('Erro ao ler os relatórios: '+err.message); console.error(err); }
+let mbFactors = {};
+const manualFactors = {};
+
+const DEFAULT_MB_FACTORS = {
+  "FRANGO DESFIADO": 5.0,
+  "FRANGO GRELHADO": 4.8,
+  "MUÇARELA": 22.5,
+  "PANE ROMANO": 12.0,
+  "BACON": 4.0,
+  "CALABRESA": 3.0,
+  "CARNE SECA": 4.0,
+  "CREAM CHEESE": 4.8,
+  "CREME CATUPIRY": 6.1,
+  "GORGONZOLA": 3.0,
+  "MOLHO PIZZA": 32.4,
+  "MUÇARELA DE BÚFALA": 0.5,
+  "OVO DE CODORNA": 13.5,
+  "PEPERONI": 3.0,
+  "PRESUNTO": 3.0,
+  "REQUEIJÃO": 6.0,
+  "MAIONESE GRILL": 0.35,
+  "MOLHO CHIPOTLE": 0.35,
+  "MOLHO CHEDDAR": 6.0,
+  "CAIXA 30CM - 12": 50.0,
+  "CAIXA 35CM - 14": 50.0,
+  "CAIXA 40CM - 16": 50.0,
+  "CAIXA 7 - 18CM": 100.0,
+  "CAIXA DOMINIX": 50.0,
+  "CAIXA PAN - 30CM": 50.0,
+  "CAIXA DOMINOS BOX": 100.0,
+  "AÇUCAR C/ CANELA": 2.2,
+  "ALHO": 0.5,
+  "AZEITE": 6.0,
+  "AZEITONAS PRETAS": 4.0,
+  "CALDA BRIGADEIRO": 6.3,
+  "CHAMPIGNON": 4.0,
+  "CHOCOLATE GRANULADO": 1.0,
+  "CONFEITOS DE CHOCOLATE": 4.0,
+  "CREME BAUNILHA": 9.0,
+  "DOCE DE LEITE": 4.8,
+  "FUBA": 10.0,
+  "GORDURA VEGETAL": 2.5,
+  "MILHO": 4.8,
+  "ORÉGANO": 0.25,
+  "OVOMALTINE": 4.2,
+  "PARMESÃO": 8.0,
+  "PASTA DE ALHO": 4.0,
+  "MOLHO THAI SWEET CHILI": 0.25,
+  "CREME CULINARIO": 12.0,
+  "NUTELLA": 6.0
+};
+
+async function loadMBFactors() {
+  mbFactors = Object.assign({}, DEFAULT_MB_FACTORS);
+  try {
+    const res = await fetch('referencia_embalagens_mb.xlsx');
+    if (!res.ok) return;
+    const arrayBuffer = await res.arrayBuffer();
+    const data = new Uint8Array(arrayBuffer);
+    const workbook = XLSX.read(data, {type: 'array'});
+    console.log('Carregando fatores de embalagem automaticamente do servidor...');
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, {header: 1});
+    for (let i = 1; i < rows.length; i++) {
+      const factor = parseFloat(rows[i][0]);
+      const name = String(rows[i][1] || '').trim().toUpperCase();
+      if (name && !isNaN(factor)) {
+        mbFactors[name] = factor;
+      }
+    }
+    console.log('Fatores de embalagem carregados:', mbFactors);
+  } catch(e) {
+    console.warn('Não foi possível carregar o arquivo Excel de referência, usando padrões:', e);
+  }
+}
+
+async function tryRun(){
+  if(!buffers.trend) return;
+  try {
+    await loadMBFactors();
+    run();
+  } catch(err){
+    alert('Erro ao ler os relatórios: '+err.message);
+    console.error(err);
+  }
 }
 
 function calcularDiasEstoque(stock, med, dataBase){
@@ -492,10 +595,12 @@ function calcularDiasEstoque(stock, med, dataBase){
   if(!med){ obs='sem histórico'; }
   else if(med.reduce((a,b)=>a+b,0)<=0){ dias=0; obs='sem consumo'; }
   else if(dataBase){
+    const incVal = parseFloat(document.getElementById('incrementPercent')?.value || 0);
+    const multiplier = 1 + (incVal / 100);
     let k=0;
     while(k<MAX_DIAS){
       const wd=new Date(dataBase.getTime()+k*86400000).getDay();
-      const uso=med[wd];
+      const uso=med[wd] * multiplier;
       if(uso<=0){ k++; continue; }
       if(stock>=uso){ stock-=uso; k++; }
       else { dias=k+stock/uso; dfim=new Date(dataBase.getTime()+k*86400000); wdfim=DIAS_PT[dfim.getDay()]; break; }
@@ -636,14 +741,12 @@ function run(){
   document.getElementById('tab-results-btn').style.display='inline-block';
   document.getElementById('tab-order-btn').style.display='inline-block';
   
-  if (META.dataBase) {
-    const orderInput = document.getElementById('orderDate');
-    const deliveryInput = document.getElementById('deliveryDate');
-    if (!orderInput.value) {
-      orderInput.value = META.dataBase.toISOString().slice(0, 10);
-      const delDate = new Date(META.dataBase.getTime() + 2 * 86400000);
-      deliveryInput.value = delDate.toISOString().slice(0, 10);
-    }
+  const orderInput = document.getElementById('orderDate');
+  const deliveryInput = document.getElementById('deliveryDate');
+  if (!orderInput.value) {
+    const todayStr = new Date(new Date().getTime() - new Date().getTimezoneOffset()*60000).toISOString().slice(0, 10);
+    orderInput.value = todayStr;
+    deliveryInput.value = todayStr;
   }
   switchTab('results');
 }
@@ -1006,17 +1109,19 @@ function renderOrderTab(){
   items.forEach(d => {
     if (!d.med) return;
     
+    const incVal = parseFloat(document.getElementById('incrementPercent')?.value || 0);
+    const multiplier = 1 + (incVal / 100);
     let consLeadTime = 0;
     for (let k = 0; k < leadTimeDays; k++) {
-      consLeadTime += d.med[addDays(oDate, k).getDay()];
+      consLeadTime += d.med[addDays(oDate, k).getDay()] * multiplier;
     }
     let consCoverage = 0;
     for (let k = 0; k < 7; k++) {
-      consCoverage += d.med[addDays(dDate, k).getDay()];
+      consCoverage += d.med[addDays(dDate, k).getDay()] * multiplier;
     }
     let consSafety = 0;
     for (let k = 0; k < safetyVal; k++) {
-      consSafety += d.med[addDays(dDate, k).getDay()];
+      consSafety += d.med[addDays(dDate, k).getDay()] * multiplier;
     }
     const currentStockBase = d.estU || 0;
     const stockAtDeliveryBase = currentStockBase - consLeadTime;
@@ -1024,69 +1129,78 @@ function renderOrderTab(){
     const requiredStockBase = consLeadTime + consCoverage + consSafety;
     const suggestionBase = Math.max(0, requiredStockBase - currentStockBase);
     
-    const factor = d.fator || d.factor || 1;
+    const factor = manualFactors[d.code] !== undefined ? manualFactors[d.code] : (mbFactors[d.desc.toUpperCase().trim()] || d.fator || d.factor || 1);
     let suggestionDisplay = suggestionBase / factor;
     let stockAtDeliveryDisplay = stockAtDeliveryBase / factor;
     let currentStockDisplay = d.stock;
     
-    if (d.code === '7DOUGH' || d.code === '8HDOUGH') {
-      suggestionDisplay = Math.ceil(suggestionDisplay * 10) / 10;
-      stockAtDeliveryDisplay = parseFloat(stockAtDeliveryDisplay.toFixed(1));
-    } else if (BANDEJA[d.code]) {
-      suggestionDisplay = Math.ceil(suggestionDisplay);
-      stockAtDeliveryDisplay = Math.ceil(stockAtDeliveryDisplay);
+    suggestionDisplay = Math.ceil(suggestionDisplay);
+    if (stockAtDeliveryDisplay < 0) {
+      stockAtDeliveryDisplay = Math.floor(stockAtDeliveryDisplay);
     } else {
-      suggestionDisplay = Math.ceil(suggestionDisplay * 100) / 100;
-      stockAtDeliveryDisplay = parseFloat(stockAtDeliveryDisplay.toFixed(2));
+      stockAtDeliveryDisplay = Math.round(stockAtDeliveryDisplay);
     }
     
     hasAnySuggestion = true;
     
     const tr = document.createElement('tr');
     const trCls = isCriticalRupture ? 'style="background:var(--red-bg)"' : '';
+    const factorInput = '<input type="number" class="tbl-factor-in" data-order-factor="'+d.code+'" value="'+factor+'" step="any" min="0.01">';
     const stockInput = '<input type="number" class="tbl-stock-in" data-order-stock="'+d.code+'" value="'+currentStockDisplay+'" step="any" min="0">';
     const deliveryStockText = isCriticalRupture 
-      ? '<span style="color:var(--red); font-weight:700;">⚠ Ruptura (' + stockAtDeliveryDisplay.toLocaleString('pt-BR') + ')</span>'
-      : stockAtDeliveryDisplay.toLocaleString('pt-BR');
+      ? '<span style="color:var(--red); font-weight:700;">⚠ Ruptura (' + stockAtDeliveryDisplay.toLocaleString('pt-BR') + ' cx)</span>'
+      : stockAtDeliveryDisplay.toLocaleString('pt-BR') + ' cx';
       
     const sugStyle = suggestionDisplay > 0 ? 'font-weight:700; color:var(--brand);' : 'color:var(--muted); opacity:0.6;';
     tr.innerHTML = 
+      '<td class="num">' + factorInput + '</td>' +
       '<td class="desc" ' + trCls + '>' + d.desc + '</td>' +
       '<td>' + d.unit + '</td>' +
       '<td class="num">' + stockInput + '</td>' +
       '<td class="num">' + deliveryStockText + '</td>' +
-      '<td class="num" style="' + sugStyle + '">' + suggestionDisplay.toLocaleString('pt-BR') + '</td>';
+      '<td class="num" style="' + sugStyle + '">' + suggestionDisplay.toLocaleString('pt-BR') + ' cx</td>';
       
     tb.appendChild(tr);
   });
   
   document.getElementById('oempty').style.display = hasAnySuggestion ? 'none' : 'block';
   
+  const activeFactorCode = activeEl ? activeEl.dataset.orderFactor : null;
   if (activeCode) {
     const nextEl = document.querySelector('input[data-order-stock="'+activeCode+'"]');
+    if (nextEl) nextEl.focus();
+  } else if (activeFactorCode) {
+    const nextEl = document.querySelector('input[data-order-factor="'+activeFactorCode+'"]');
     if (nextEl) nextEl.focus();
   }
 }
 
 document.getElementById('otbody').addEventListener('input', e => {
   const scode = e.target.dataset.orderStock;
-  if(scode){
-    manualStock[scode] = e.target.value;
-    const val = e.target.value !== '' ? parseFloat(e.target.value) : 0;
-    const item = DATA.find(d => d.code === scode);
+  const fcode = e.target.dataset.orderFactor;
+  if(scode || fcode){
+    const code = scode || fcode;
+    const item = DATA.find(d => d.code === code);
     if(item){
-      item.stock = val;
-      item.estU = val * (item.factor || 1);
-      const res = calcularDiasEstoque(item.estU, item.med, META.dataBase);
-      item.days = res.dias;
-      item.date = res.dfim;
-      item.wd = res.wdfim;
-      item.obs = res.obs;
-      
-      const tblInput = document.querySelector('input[data-tbl-stock="'+scode+'"]');
-      if (tblInput) tblInput.value = e.target.value;
-      const doughInput = document.querySelector('input[data-stock="'+scode+'"]');
-      if (doughInput) doughInput.value = e.target.value;
+      if(scode){
+        manualStock[code] = e.target.value;
+        const val = e.target.value !== '' ? parseFloat(e.target.value) : 0;
+        item.stock = val;
+        item.estU = val * (item.factor || 1);
+        const res = calcularDiasEstoque(item.estU, item.med, META.dataBase);
+        item.days = res.dias;
+        item.date = res.dfim;
+        item.wd = res.wdfim;
+        item.obs = res.obs;
+        
+        const tblInput = document.querySelector('input[data-tbl-stock="'+code+'"]');
+        if (tblInput) tblInput.value = e.target.value;
+        const doughInput = document.querySelector('input[data-stock="'+code+'"]');
+        if (doughInput) doughInput.value = e.target.value;
+      } else if(fcode){
+        const val = e.target.value !== '' ? parseFloat(e.target.value) : 1;
+        manualFactors[code] = val;
+      }
 
       const tr = e.target.closest('tr');
       if (tr) {
@@ -1098,17 +1212,19 @@ document.getElementById('otbody').addEventListener('input', e => {
           const dDate = new Date(dDateVal + 'T00:00:00');
           const leadTimeDays = Math.max(0, diffDays(oDate, dDate));
           
+          const incVal = parseFloat(document.getElementById('incrementPercent')?.value || 0);
+          const multiplier = 1 + (incVal / 100);
           let consLeadTime = 0;
           for (let k = 0; k < leadTimeDays; k++) {
-            consLeadTime += item.med[addDays(oDate, k).getDay()];
+            consLeadTime += item.med[addDays(oDate, k).getDay()] * multiplier;
           }
           let consCoverage = 0;
           for (let k = 0; k < 7; k++) {
-            consCoverage += item.med[addDays(dDate, k).getDay()];
+            consCoverage += item.med[addDays(dDate, k).getDay()] * multiplier;
           }
           let consSafety = 0;
           for (let k = 0; k < safetyVal; k++) {
-            consSafety += item.med[addDays(dDate, k).getDay()];
+            consSafety += item.med[addDays(dDate, k).getDay()] * multiplier;
           }
           
           const currentStockBase = item.estU || 0;
@@ -1117,36 +1233,32 @@ document.getElementById('otbody').addEventListener('input', e => {
           const requiredStockBase = consLeadTime + consCoverage + consSafety;
           const suggestionBase = Math.max(0, requiredStockBase - currentStockBase);
           
-          const factor = item.fator || item.factor || 1;
+          const factor = manualFactors[item.code] !== undefined ? manualFactors[item.code] : (mbFactors[item.desc.toUpperCase().trim()] || item.fator || item.factor || 1);
           let suggestionDisplay = suggestionBase / factor;
           let stockAtDeliveryDisplay = stockAtDeliveryBase / factor;
           
-          if (item.code === '7DOUGH' || item.code === '8HDOUGH') {
-            suggestionDisplay = Math.ceil(suggestionDisplay * 10) / 10;
-            stockAtDeliveryDisplay = parseFloat(stockAtDeliveryDisplay.toFixed(1));
-          } else if (BANDEJA[item.code]) {
-            suggestionDisplay = Math.ceil(suggestionDisplay);
-            stockAtDeliveryDisplay = Math.ceil(stockAtDeliveryDisplay);
+          suggestionDisplay = Math.ceil(suggestionDisplay);
+          if (stockAtDeliveryDisplay < 0) {
+            stockAtDeliveryDisplay = Math.floor(stockAtDeliveryDisplay);
           } else {
-            suggestionDisplay = Math.ceil(suggestionDisplay * 100) / 100;
-            stockAtDeliveryDisplay = parseFloat(stockAtDeliveryDisplay.toFixed(2));
+            stockAtDeliveryDisplay = Math.round(stockAtDeliveryDisplay);
           }
           
-          const cellDelivery = tr.cells[3];
+          const cellDelivery = tr.cells[4];
           if (cellDelivery) {
             cellDelivery.innerHTML = isCriticalRupture 
-              ? '<span style="color:var(--red); font-weight:700;">⚠ Ruptura (' + stockAtDeliveryDisplay.toLocaleString('pt-BR') + ')</span>'
-              : stockAtDeliveryDisplay.toLocaleString('pt-BR');
+              ? '<span style="color:var(--red); font-weight:700;">⚠ Ruptura (' + stockAtDeliveryDisplay.toLocaleString('pt-BR') + ' cx)</span>'
+              : stockAtDeliveryDisplay.toLocaleString('pt-BR') + ' cx';
             if (isCriticalRupture) {
-              tr.cells[0].style.background = 'var(--red-bg)';
+              tr.cells[1].style.background = 'var(--red-bg)';
             } else {
-              tr.cells[0].style.background = '';
+              tr.cells[1].style.background = '';
             }
           }
-          const cellSug = tr.cells[4];
+          const cellSug = tr.cells[5];
           if (cellSug) {
-            cellSug.textContent = suggestionDisplay.toLocaleString('pt-BR');
-            const sugStyle = suggestionDisplay > 0 ? 'font-weight:700; color:var(--brand); opacity:1;' : 'color:var(--muted); opacity:0.6;';
+            cellSug.textContent = suggestionDisplay.toLocaleString('pt-BR') + ' cx';
+            const sugStyle = suggestionDisplay > 0 ? 'font-weight:700; color:var(--brand);' : 'color:var(--muted); opacity:0.6;';
             cellSug.style = sugStyle;
           }
         }
@@ -1157,20 +1269,37 @@ document.getElementById('otbody').addEventListener('input', e => {
 });
 
 document.getElementById('otbody').addEventListener('blur', e => {
-  if (e.target.dataset.orderStock) {
+  if (e.target.dataset.orderStock || e.target.dataset.orderFactor) {
     renderOrderTab();
   }
 }, true);
+function recalculateAll(){
+  DATA.forEach(item => {
+    if (item.med) {
+      const res = calcularDiasEstoque(item.estU, item.med, META.dataBase);
+      item.days = res.dias;
+      item.date = res.dfim;
+      item.wd = res.wdfim;
+      item.obs = res.obs;
+    }
+  });
+  renderTable();
+  renderOrderTab();
+  computeProd();
+}
+
 ['change', 'input'].forEach(ev => {
   document.getElementById('orderDate').addEventListener(ev, renderOrderTab);
   document.getElementById('deliveryDate').addEventListener(ev, renderOrderTab);
   document.getElementById('safetyDays').addEventListener(ev, renderOrderTab);
+  document.getElementById('incrementPercent').addEventListener(ev, recalculateAll);
 });
 
 document.getElementById('copy-order-btn').onclick = () => {
   const oDateVal = document.getElementById('orderDate').value;
   const dDateVal = document.getElementById('deliveryDate').value;
   const safetyVal = parseInt(document.getElementById('safetyDays').value, 10) || 0;
+  const incVal = parseFloat(document.getElementById('incrementPercent').value || 0);
   if (!oDateVal || !dDateVal) return;
   
   const oDate = new Date(oDateVal + 'T00:00:00');
@@ -1180,39 +1309,33 @@ document.getElementById('copy-order-btn').onclick = () => {
   let text = '🛒 *Sugestão de Pedido de Compras — Domino\'s*\n';
   text += '📅 *Pedido:* ' + oDate.toLocaleDateString('pt-BR') + ' | *Entrega:* ' + dDate.toLocaleDateString('pt-BR') + '\n';
   if (safetyVal > 0) text += '🛡️ *Segurança:* ' + safetyVal + ' dias\n';
+  if (incVal !== 0) text += '📈 *Incremento:* ' + incVal + '%\n';
   text += '------------------------------------------\n';
   
+  const multiplier = 1 + (incVal / 100);
   const grouped = {};
   DATA.forEach(d => {
     if (!d.med) return;
     
     let consLeadTime = 0;
     for (let k = 0; k < leadTimeDays; k++) {
-      consLeadTime += d.med[addDays(oDate, k).getDay()];
+      consLeadTime += d.med[addDays(oDate, k).getDay()] * multiplier;
     }
     let consCoverage = 0;
     for (let k = 0; k < 7; k++) {
-      consCoverage += d.med[addDays(dDate, k).getDay()];
+      consCoverage += d.med[addDays(dDate, k).getDay()] * multiplier;
     }
     let consSafety = 0;
     for (let k = 0; k < safetyVal; k++) {
-      consSafety += d.med[addDays(dDate, k).getDay()];
+      consSafety += d.med[addDays(dDate, k).getDay()] * multiplier;
     }
     
     const currentStockBase = d.estU || 0;
     const requiredStockBase = consLeadTime + consCoverage + consSafety;
     const suggestionBase = Math.max(0, requiredStockBase - currentStockBase);
     
-    const factor = d.fator || d.factor || 1;
-    let suggestionDisplay = suggestionBase / factor;
-    
-    if (d.code === '7DOUGH' || d.code === '8HDOUGH') {
-      suggestionDisplay = Math.ceil(suggestionDisplay * 10) / 10;
-    } else if (BANDEJA[d.code]) {
-      suggestionDisplay = Math.ceil(suggestionDisplay);
-    } else {
-      suggestionDisplay = Math.ceil(suggestionDisplay * 100) / 100;
-    }
+    const factor = manualFactors[d.code] !== undefined ? manualFactors[d.code] : (mbFactors[d.desc.toUpperCase().trim()] || d.fator || d.factor || 1);
+    let suggestionDisplay = Math.ceil(suggestionBase / factor);
     
     if (suggestionDisplay > 0) {
       if (!grouped[d.cat]) grouped[d.cat] = [];
