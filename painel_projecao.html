@@ -37,7 +37,7 @@
   .rtile{height:26px;width:auto;flex:0 0 auto;align-self:center}
   h1{font-size:28px;margin:10px 0 4px;font-weight:750}
   .sub{color:var(--muted);margin:0 0 28px;font-size:15px}
-  .grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:20px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
   @media (max-width:720px){.grid{grid-template-columns:1fr}}
   .card{background:var(--card);border:1px solid var(--line);border-radius:16px;
         padding:20px;box-shadow:var(--shadow)}
@@ -253,18 +253,6 @@
       </div>
       <input type="file" accept=".xlsx" data-input="variance">
     </div>
-
-    <div class="card three">
-      <span class="badge">Referência (Opcional)</span>
-      <h2>referencia_embalagens_mb</h2>
-      <p class="role">Planilha de referência &middot; colunas <b>Fator Embalagem</b> e <b>Insumo</b></p>
-      <div class="drop" data-key="factors" data-match="embalagens">
-        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        <div class="big">Arraste a referência aqui</div>
-        <div class="small">ou clique para selecionar</div>
-      </div>
-      <input type="file" accept=".xlsx" data-input="factors">
-    </div>
   </div>
 
   <section id="results">
@@ -407,8 +395,8 @@ function catOf(code, desc, type){
 }
 
 /* ======================= Leitura dos arquivos ======================= */
-const files = { trend:null, variance:null, factors:null };
-const buffers = { trend:null, variance:null, factors:null };
+const files = { trend:null, variance:null };
+const buffers = { trend:null, variance:null };
 const CHECK_SVG = `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
 const DOWN_SVG = `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
 const fmt = b => b>=1048576 ? (b/1048576).toFixed(1)+' MB' : Math.max(1,Math.round(b/1024))+' KB';
@@ -566,19 +554,12 @@ const DEFAULT_MB_FACTORS = {
 async function loadMBFactors() {
   mbFactors = Object.assign({}, DEFAULT_MB_FACTORS);
   try {
-    let workbook;
-    if (buffers.factors) {
-      const data = new Uint8Array(buffers.factors);
-      workbook = XLSX.read(data, {type: 'array'});
-      console.log('Carregando fatores de embalagem a partir do arquivo arrastado...');
-    } else {
-      const res = await fetch('referencia_embalagens_mb.xlsx');
-      if (!res.ok) return;
-      const arrayBuffer = await res.arrayBuffer();
-      const data = new Uint8Array(arrayBuffer);
-      workbook = XLSX.read(data, {type: 'array'});
-      console.log('Carregando fatores de embalagem automaticamente do servidor...');
-    }
+    const res = await fetch('referencia_embalagens_mb.xlsx');
+    if (!res.ok) return;
+    const arrayBuffer = await res.arrayBuffer();
+    const data = new Uint8Array(arrayBuffer);
+    const workbook = XLSX.read(data, {type: 'array'});
+    console.log('Carregando fatores de embalagem automaticamente do servidor...');
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(sheet, {header: 1});
     for (let i = 1; i < rows.length; i++) {
