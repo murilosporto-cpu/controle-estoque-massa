@@ -376,6 +376,8 @@ const BANDEJA = { "7DOUGH":12, "8HDOUGH":12, "11HDOUGH":8, "14DOUGH":6, "11HDOPA
 const ARRED_CIMA = new Set(["11HDOUGH","14DOUGH","11HDOPAN"]);
 const DIAS_PT = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"]; // getDay() 0=Dom
 const MAX_DIAS = 400;
+const CAD_DIAS = { D:[0,1,2,3,4,5,6], MWF:[1,3,5], TTS:[2,4,6] }; // getDay: Dom0..Sáb6
+const DIAS_VALIDADE = 5; // massa: 5 dias de uso (janela de consumo coberta pela produção)
 
 let DATA = [];     // linhas da projeção
 let META = {};
@@ -871,9 +873,6 @@ function renderTable(){
   }
 }
 
-/* ======================= Produção de massas (PVPS) ======================= */
-const CAD_DIAS = { D:[0,1,2,3,4,5,6], MWF:[1,3,5], TTS:[2,4,6] }; // getDay: Dom0..Sáb6
-
 function nextProd(D, cad){
   const set = CAD_DIAS[cad];
   for(let k=1;k<=8;k++){ const t=addDays(D,k); if(set.includes(t.getDay())) return t; }
@@ -947,7 +946,6 @@ function buildProdSkeleton(){
   computeProd();
 }
 
-const DIAS_VALIDADE = 5; // massa: 5 dias de uso (janela de consumo coberta pela produção)
 
 function computeProd(){
   const dv=document.getElementById('prodDate').value;
