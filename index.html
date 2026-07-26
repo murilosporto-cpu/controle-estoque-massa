@@ -655,9 +655,9 @@ function calcularDiasEstoque(stock, med, dataBase){
 }
 
 function run(){
-  manualStock = {};
-  manualFactors = {};
-  manualTransit = {};
+  for (const k in manualStock) delete manualStock[k];
+  for (const k in manualFactors) delete manualFactors[k];
+  for (const k in manualTransit) delete manualTransit[k];
   /* ---- Item Trend: média de Ideal Usage por dia da semana ---- */
   const tr = readRows(buffers.trend), th = tr[0];
   const iCode=colIdx(th,'Inv Code'), iDate=colIdx(th,'Date'),
