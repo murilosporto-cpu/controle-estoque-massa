@@ -520,7 +520,7 @@ function setFile(key, file){
   render(document.querySelector('.drop[data-key="'+key+'"]'),key);
 }
 
-document.querySelectorAll('.drop').forEach(drop=>{
+document.querySelectorAll('.drop[data-key]').forEach(drop=>{
   const key=drop.dataset.key, input=document.querySelector('input[data-input="'+key+'"]');
   drop.addEventListener('click', e=>{ if(e.target.dataset.clear) return; input.click(); });
   input.addEventListener('change', ()=>{ if(input.files[0]) setFile(key,input.files[0]); });
