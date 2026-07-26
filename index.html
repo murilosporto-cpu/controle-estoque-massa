@@ -624,7 +624,7 @@ async function loadMBFactors() {
 }
 
 async function tryRun(){
-  if(!buffers.trend) return;
+  if(!buffers.trend && !buffers.variance) return;
   try {
     await loadMBFactors();
     run();
@@ -659,10 +659,16 @@ function run(){
   for (const k in manualFactors) delete manualFactors[k];
   for (const k in manualTransit) delete manualTransit[k];
   /* ---- Item Trend: média de Ideal Usage por dia da semana ---- */
-  const tr = readRows(buffers.trend), th = tr[0];
+  let tr = [];
+  if (buffers.trend) {
+    tr = readRows(buffers.trend);
+  } else {
+    tr = [['Inv Code', 'Date', 'Ideal Usage', 'Description', 'Count Unit']];
+  }
+  const th = tr[0];
   const iCode=colIdx(th,'Inv Code'), iDate=colIdx(th,'Date'),
         iIdeal=colIdx(th,'Ideal Usage'), iDesc=colIdx(th,'Description'), iUnit=colIdx(th,'Count Unit');
-  if(iCode<0||iIdeal<0) throw new Error('No relatório Item Trend faltou a coluna '+(iCode<0?'"Inv Code"':'"Ideal Usage"')+'. Confira se arrastou o arquivo certo.');
+  if(buffers.trend && (iCode<0||iIdeal<0)) throw new Error('No relatório Item Trend faltou a coluna '+(iCode<0?'"Inv Code"':'"Ideal Usage"')+'. Confira se arrastou o arquivo certo.');
   
   const soma={}, cont={}, desc={}, unit={};
   let maxDate = null;
