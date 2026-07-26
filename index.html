@@ -381,6 +381,14 @@ let DATA = [];     // linhas da projeção
 let META = {};
 const toNum = v => { const n=parseFloat(v); return isNaN(n)?0:n; };
 
+// Estados editáveis ou dinâmicos do usuário
+const manualStock = {};
+const prodCount = {};
+const prodState = {};
+const manualTransit = {};
+let transitColumns = [];
+let transitIdCounter = 0;
+
 /* Categoria por código (nível único, 9 categorias) */
 const CAT = {};
 const add = (cat, codes)=>codes.forEach(c=>CAT[c]=cat);
@@ -862,7 +870,6 @@ const CAD_DIAS = { D:[0,1,2,3,4,5,6], MWF:[1,3,5], TTS:[2,4,6] }; // getDay: Dom
 const addDays = (d,n)=> new Date(d.getTime()+n*86400000);
 const diffDays = (a,b)=> Math.round((b-a)/86400000);
 const massRows = ()=> DATA.filter(d=>d.factor && d.med).sort((a,b)=>a.desc.localeCompare(b.desc));
-const prodState = {}; // code -> [{date, qtd}, ...]
 
 function nextProd(D, cad){
   const set = CAD_DIAS[cad];
@@ -880,10 +887,6 @@ function updateProdVisibility(){
   }
   if(show) buildProdSkeleton();
 }
-
-const prodCount = {};   // code -> nº de vencimentos que o usuário quer abrir
-const manualStock = {}; // code -> estoque final em bandejas digitado manualmente
-
 function renderVencs(code){
   const m = massRows().find(x=>x.code===code); if(!m) return;
   const n = prodCount[code] ?? 0;
@@ -1068,10 +1071,6 @@ document.getElementById('tbody').addEventListener('blur', e => {
     renderTable();
   }
 }, true);
-
-let transitColumns = [];
-let transitIdCounter = 0;
-const manualTransit = {};
 
 function addTransitColumn() {
   const colId = ++transitIdCounter;
