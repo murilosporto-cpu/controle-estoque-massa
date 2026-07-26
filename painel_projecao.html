@@ -377,6 +377,10 @@ const ARRED_CIMA = new Set(["11HDOUGH","14DOUGH","11HDOPAN"]);
 const DIAS_PT = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"]; // getDay() 0=Dom
 const MAX_DIAS = 400;
 
+let DATA = [];     // linhas da projeção
+let META = {};
+const toNum = v => { const n=parseFloat(v); return isNaN(n)?0:n; };
+
 /* Categoria por código (nível único, 9 categorias) */
 const CAT = {};
 const add = (cat, codes)=>codes.forEach(c=>CAT[c]=cat);
@@ -569,11 +573,6 @@ function colIdx(hdr, ...names){
   }
   return -1;
 }
-const toNum = v => { const n=parseFloat(v); return isNaN(n)?0:n; };
-
-let DATA = [];     // linhas da projeção
-let META = {};
-
 async function loadMBFactors() {
   mbFactors = Object.assign({}, DEFAULT_MB_FACTORS);
   try {
