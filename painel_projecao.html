@@ -37,8 +37,8 @@
   .rtile{height:26px;width:auto;flex:0 0 auto;align-self:center}
   h1{font-size:28px;margin:10px 0 4px;font-weight:750}
   .sub{color:var(--muted);margin:0 0 28px;font-size:15px}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-  @media (max-width:720px){.grid{grid-template-columns:1fr}}
+  .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px}
+  @media (max-width:960px){.grid{grid-template-columns:1fr}}
   .card{background:var(--card);border:1px solid var(--line);border-radius:16px;
         padding:20px;box-shadow:var(--shadow)}
   .badge{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.6px;
@@ -263,7 +263,18 @@
         <div class="big">Arraste o relatório aqui</div>
         <div class="small">ou clique para selecionar</div>
       </div>
-      <input type="file" accept=".xlsx" data-input="variance">
+    </div>
+
+    <div class="card three">
+      <span class="badge" style="background:#1e3a8a; color:#fff;">Pedidos em Trânsito</span>
+      <h2>Pedidos em Estrada (MB)</h2>
+      <p class="role">Caixas a caminho &middot; colunas com <b>Descrição</b> e <b>Caminhão X (cx)</b></p>
+      <div class="drop" id="transit-dropzone" style="border: 2px dashed var(--line); border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; transition: 0.15s;" onclick="document.getElementById('transit-file-input').click()">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <div class="big">Arraste o relatório aqui</div>
+        <div class="small">ou clique para selecionar</div>
+      </div>
+      <input type="file" id="transit-file-input" accept=".xlsx,.xls,.csv" style="display: none;">
     </div>
   </div>
 
@@ -347,8 +358,6 @@
       </div>
       <div id="order-details-info" style="margin-top:16px; font-size:13px; color:var(--muted); line-height:1.6; border-top:1px solid var(--line); padding-top:12px;"></div>
     </div>
-    </div>
-    
     <div class="filters" id="order-filters" style="margin-bottom:20px;"></div>
     <div class="tablewrap">
       <table id="otbl" style="width:100%; border-collapse:collapse;">
@@ -478,6 +487,8 @@ function switchTab(tabId) {
     document.getElementById('results').style.display = 'block';
     document.getElementById('tab-order').style.display = 'none';
     document.getElementById('results').scrollIntoView({behavior:'smooth',block:'start'});
+    renderTable();
+    updateProdVisibility();
   } else if (tabId === 'order') {
     document.querySelector('header').style.display = 'none';
     document.getElementById('dropzone').style.display = 'none';
@@ -1358,6 +1369,116 @@ document.getElementById('otbody').addEventListener('blur', e => {
     renderOrderTab();
   }
 }, true);
+
+// Leitor de arquivo de Pedidos em Trânsito
+const transitZone = document.getElementById('transit-dropzone');
+const transitInput = document.getElementById('transit-file-input');
+
+if (transitZone && transitInput) {
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    transitZone.addEventListener(eventName, e => {
+      e.preventDefault();
+      e.stopPropagation();
+    }, false);
+  });
+
+  ['dragenter', 'dragover'].forEach(eventName => {
+    transitZone.addEventListener(eventName, () => {
+      transitZone.style.borderColor = 'var(--brand)';
+      transitZone.style.background = 'var(--chip)';
+    }, false);
+  });
+
+  ['dragleave', 'drop'].forEach(eventName => {
+    transitZone.addEventListener(eventName, () => {
+      transitZone.style.borderColor = 'var(--line)';
+      transitZone.style.background = 'var(--card)';
+    }, false);
+  });
+
+  transitZone.addEventListener('drop', e => {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+    if (files.length) handleTransitFile(files[0]);
+  }, false);
+
+  transitInput.addEventListener('change', e => {
+    const files = e.target.files;
+    if (files.length) handleTransitFile(files[0]);
+  }, false);
+}
+
+function handleTransitFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[firstSheetName];
+      const rows = XLSX.utils.sheet_to_json(sheet, { defval: null });
+      
+      if (!rows.length) {
+        alert('A planilha importada está vazia.');
+        return;
+      }
+      
+      const keys = Object.keys(rows[0]);
+      const descKey = keys.find(k => {
+        const lower = String(k).toLowerCase().trim();
+        return lower.includes('desc') || lower.includes('insumo') || lower.includes('item') || lower.includes('produto');
+      }) || keys[0];
+      
+      const truckCols = keys.filter(k => {
+        const lower = String(k).toLowerCase().trim();
+        return lower.includes('caminh') || lower.includes('caminhao');
+      });
+      
+      if (!truckCols.length) {
+        alert('Não foi encontrada nenhuma coluna contendo "Caminhão" (ex: Caminhão 1 (cx), Caminhão 2 (cx)). Certifique-se de que os títulos das colunas de caixas comecem com "Caminhão".');
+        return;
+      }
+      
+      transitColumns = [];
+      transitIdCounter = 0;
+      Object.keys(manualTransit).forEach(k => delete manualTransit[k]);
+      
+      const colIdMap = {};
+      truckCols.forEach(colName => {
+        const colId = ++transitIdCounter;
+        transitColumns.push(colId);
+        colIdMap[colName] = colId;
+      });
+      
+      rows.forEach(r => {
+        const descVal = String(r[descKey] || '').toUpperCase().trim();
+        if (!descVal) return;
+        
+        const item = DATA.find(d => d.desc.toUpperCase().trim() === descVal);
+        if (!item) return;
+        
+        if (!manualTransit[item.code]) manualTransit[item.code] = {};
+        
+        truckCols.forEach(colName => {
+          const qtyVal = parseFloat(r[colName] || 0);
+          if (qtyVal > 0) {
+            const colId = colIdMap[colName];
+            manualTransit[item.code][colId] = qtyVal;
+          }
+        });
+      });
+      
+      renderOrderTab();
+      switchTab('order');
+      alert('Planilha de Pedidos em Trânsito importada com sucesso! (' + transitColumns.length + ' caminhão(ões) carregado(s)).');
+      
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao processar a planilha de trânsito: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
 function recalculateAll(){
   DATA.forEach(item => {
     if (item.med) {
