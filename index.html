@@ -178,6 +178,18 @@
     color: var(--brand);
     border-bottom-color: var(--brand);
   }
+  @media (max-width: 768px) {
+    .tabs-nav {
+      flex-direction: column !important;
+      align-items: center !important;
+      gap: 8px !important;
+      padding-bottom: 12px;
+    }
+    #theme-toggle {
+      position: static !important;
+      margin-top: 4px;
+    }
+  }
   .tbl-stock-in {
     width: 90px;
     padding: 4px 8px;
