@@ -281,10 +281,15 @@
   </div>
 
   <section id="results">
-    <div class="rhead">
-      <img class="rtile" src="logos_svg/DPZ_2025_Logo_Tile_Blue_RGB.svg" alt="Domino's">
-      <h2 id="results-title">Projeção de dias de estoque</h2>
-      <span class="info" id="rinfo"></span>
+    <div class="rhead" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:20px;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <img class="rtile" src="logos_svg/DPZ_2025_Logo_Tile_Blue_RGB.svg" alt="Domino's">
+        <h2 id="results-title" style="margin:0;">Projeção de dias de estoque</h2>
+        <span class="info" id="rinfo" style="margin-left:8px;"></span>
+      </div>
+      <button id="copy-proj-btn" style="background:var(--brand); color:#fff; border:none; padding:10px 20px; border-radius:20px; font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:8px; transition:0.15s;">
+        📋 Copiar WhatsApp
+      </button>
     </div>
     <div id="rbanner" class="rbanner"></div>
     <div class="legend">
@@ -1518,6 +1523,7 @@ document.getElementById('copy-order-btn').onclick = () => {
   const grouped = {};
   DATA.forEach(d => {
     if (!d.med) return;
+    if (orderSelCats.size > 0 && !orderSelCats.has(d.cat)) return;
     
     let consLeadTime = 0;
     for (let k = 0; k < leadTimeDays; k++) {
@@ -1546,7 +1552,7 @@ document.getElementById('copy-order-btn').onclick = () => {
     
     if (suggestionDisplay > 0) {
       if (!grouped[d.cat]) grouped[d.cat] = [];
-      grouped[d.cat].push(d.desc + ': *' + suggestionDisplay.toLocaleString('pt-BR') + '* ' + d.unit);
+      grouped[d.cat].push(d.desc + ': *' + suggestionDisplay.toLocaleString('pt-BR') + '* cx');
     }
   });
   
@@ -1565,6 +1571,61 @@ document.getElementById('copy-order-btn').onclick = () => {
   
   navigator.clipboard.writeText(text).then(() => {
     const btn = document.getElementById('copy-order-btn');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '✅ Copiado!';
+    btn.style.background = 'var(--ok)';
+    setTimeout(() => {
+      btn.innerHTML = originalText;
+      btn.style.background = 'var(--brand)';
+    }, 2000);
+  }).catch(err => {
+    alert('Erro ao copiar para o WhatsApp: ' + err);
+  });
+};
+
+document.getElementById('copy-proj-btn').onclick = () => {
+  const df = META.dataArq ? META.dataArq.toLocaleDateString('pt-BR') : '—';
+  let text = '📊 *Projeção de Estoque — Domino\'s*\n';
+  text += '📅 *Base:* ' + df + ' | ' + DATA.length + ' insumos\n';
+  text += '------------------------------------------\n';
+  
+  const grouped = {};
+  DATA.forEach(d => {
+    if (selCats.size > 0 && !selCats.has(d.cat)) return;
+    
+    let dtxt = '';
+    if (d.days === null) {
+      dtxt = '—';
+    } else if (d.days === 0) {
+      dtxt = 'Ruptura hoje';
+    } else if (d.days < 0) {
+      dtxt = 'Ruptura';
+    } else {
+      dtxt = d.days.toFixed(1) + ' dias';
+    }
+    
+    const date = d.date ? d.date.toLocaleDateString('pt-BR') : '—';
+    const wd = d.wd || '—';
+    
+    if (!grouped[d.cat]) grouped[d.cat] = [];
+    grouped[d.cat].push(d.desc + ': *' + dtxt + '* (Acaba em ' + date + ' - ' + wd + ')');
+  });
+  
+  let hasItems = false;
+  CAT_ORDER.forEach(cat => {
+    if (grouped[cat] && grouped[cat].length > 0) {
+      hasItems = true;
+      text += '\n📦 *' + cat.toUpperCase() + '*\n';
+      grouped[cat].forEach(item => {
+        text += '• ' + item + '\n';
+      });
+    }
+  });
+  
+  if (!hasItems) text += '\nNenhum item selecionado.';
+  
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copy-proj-btn');
     const originalText = btn.innerHTML;
     btn.innerHTML = '✅ Copiado!';
     btn.style.background = 'var(--ok)';
