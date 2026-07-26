@@ -388,6 +388,8 @@ const prodState = {};
 const manualTransit = {};
 let transitColumns = [];
 let transitIdCounter = 0;
+let selCats = new Set();
+let orderSelCats = new Set();
 
 /* Categoria por código (nível único, 9 categorias) */
 const CAT = {};
@@ -778,7 +780,6 @@ function run(){
 }
 
 /* ======================= Filtros por categoria ======================= */
-let selCats = new Set();
 function buildFilters(){
   const counts={}; DATA.forEach(d=>counts[d.cat]=(counts[d.cat]||0)+1);
   const cats = CAT_ORDER.filter(c=>counts[c]);
@@ -1089,7 +1090,6 @@ function removeTransitColumn(colId) {
 }
 
 // Order Tab Logics
-let orderSelCats = new Set();
 function buildOrderFilters(){
   const counts={}; DATA.forEach(d=>counts[d.cat]=(counts[d.cat]||0)+1);
   const cats = CAT_ORDER.filter(c=>counts[c]);
