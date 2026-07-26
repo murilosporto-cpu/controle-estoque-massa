@@ -440,6 +440,9 @@ const DEFAULT_MB_FACTORS = {
   "NUTELLA": 6.0
 };
 
+let mbFactors = {};
+const manualFactors = {};
+
 // Categorização automática (itens mudam a cada loja):
 // 1) código conhecido -> 2) palavra-chave na descrição -> 3) tipo do KEYS (COLA/PAPER) -> Não CMV
 const norm = s => String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase();
@@ -570,10 +573,6 @@ const toNum = v => { const n=parseFloat(v); return isNaN(n)?0:n; };
 
 let DATA = [];     // linhas da projeção
 let META = {};
-
-let mbFactors = {};
-const manualFactors = {};
-
 
 async function loadMBFactors() {
   mbFactors = Object.assign({}, DEFAULT_MB_FACTORS);
