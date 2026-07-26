@@ -1520,10 +1520,11 @@ document.getElementById('copy-order-btn').onclick = () => {
   text += '------------------------------------------\n';
   
   const multiplier = 1 + (incVal / 100);
+  const activeCats = new Set([...document.querySelectorAll('#order-filters .chip.active')].map(ch => ch.dataset.ocat).filter(c => c && c !== '__all'));
   const grouped = {};
   DATA.forEach(d => {
     if (!d.med) return;
-    if (orderSelCats.size > 0 && !orderSelCats.has(d.cat)) return;
+    if (activeCats.size > 0 && !activeCats.has(d.cat)) return;
     
     let consLeadTime = 0;
     for (let k = 0; k < leadTimeDays; k++) {
@@ -1589,9 +1590,10 @@ document.getElementById('copy-proj-btn').onclick = () => {
   text += '📅 *Base:* ' + df + ' | ' + DATA.length + ' insumos\n';
   text += '------------------------------------------\n';
   
+  const activeCats = new Set([...document.querySelectorAll('#filters .chip.active')].map(ch => ch.dataset.cat).filter(c => c && c !== '__all'));
   const grouped = {};
   DATA.forEach(d => {
-    if (selCats.size > 0 && !selCats.has(d.cat)) return;
+    if (activeCats.size > 0 && !activeCats.has(d.cat)) return;
     
     let dtxt = '';
     if (d.days === null) {
