@@ -1553,7 +1553,8 @@ document.getElementById('copy-order-btn').onclick = () => {
     
     if (suggestionDisplay > 0) {
       if (!grouped[d.cat]) grouped[d.cat] = [];
-      grouped[d.cat].push(d.desc + ': *' + suggestionDisplay.toLocaleString('pt-BR') + '* cx');
+      const unitSuffix = d.cat.toLowerCase() === 'massas' ? 'band' : 'cx';
+      grouped[d.cat].push(d.desc + ': *' + suggestionDisplay.toLocaleString('pt-BR') + '* ' + unitSuffix);
     }
   });
   
@@ -1609,8 +1610,16 @@ document.getElementById('copy-proj-btn').onclick = () => {
     const date = d.date ? d.date.toLocaleDateString('pt-BR') : '—';
     const wd = d.wd || '—';
     
+    let estTxt = '';
+    if (d.cat.toLowerCase() === 'massas') {
+      const estBand = d.stock != null ? d.stock : 0;
+      estTxt = 'Estoque: ' + (d.code === '7DOUGH' || d.code === '8HDOUGH' ? estBand.toFixed(1) : Math.ceil(estBand)) + ' band';
+    } else {
+      estTxt = 'Estoque: ' + (d.stock != null ? d.stock.toLocaleString('pt-BR') : '0') + ' ' + d.unit;
+    }
+    
     if (!grouped[d.cat]) grouped[d.cat] = [];
-    grouped[d.cat].push(d.desc + ': *' + dtxt + '* (Acaba em ' + date + ' - ' + wd + ')');
+    grouped[d.cat].push(d.desc + ': *' + dtxt + '* (' + estTxt + ' | Acaba em ' + date + ' - ' + wd + ')');
   });
   
   let hasItems = false;
