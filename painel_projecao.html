@@ -1555,10 +1555,18 @@ document.getElementById('copy-order-btn').onclick = () => {
     const suggestionBase = Math.max(0, requiredStockBase - currentStockBase - transitKg);
     let suggestionDisplay = Math.ceil(suggestionBase / factor);
     
-    if (suggestionDisplay > 0) {
+    const unitSuffix = d.cat.toLowerCase() === 'massas' ? 'band' : 'cx';
+    let estTxt = '';
+    if (d.cat.toLowerCase() === 'massas') {
+      const estBand = d.stock != null ? d.stock : 0;
+      estTxt = ' (Estoque: ' + (d.code === '7DOUGH' || d.code === '8HDOUGH' ? estBand.toFixed(1) : Math.ceil(estBand)) + ' band)';
+    } else {
+      estTxt = ' (Estoque: ' + (d.stock != null ? d.stock.toLocaleString('pt-BR') : '0') + ' ' + d.unit + ')';
+    }
+
+    if (suggestionDisplay > 0 || d.cat.toLowerCase() === 'massas') {
       if (!grouped[d.cat]) grouped[d.cat] = [];
-      const unitSuffix = d.cat.toLowerCase() === 'massas' ? 'band' : 'cx';
-      grouped[d.cat].push(d.desc + ': *' + suggestionDisplay.toLocaleString('pt-BR') + '* ' + unitSuffix);
+      grouped[d.cat].push(d.desc + ': *' + suggestionDisplay.toLocaleString('pt-BR') + '* ' + unitSuffix + estTxt);
     }
   });
   
