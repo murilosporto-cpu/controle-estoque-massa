@@ -27,7 +27,7 @@
   body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
        background:var(--bg);color:var(--ink);line-height:1.5;
        padding:32px 20px 60px;-webkit-font-smoothing:antialiased}
-  .wrap{max-width:1120px;margin:0 auto}
+  .wrap{width:95%;max-width:1600px;margin:0 auto}
   header{text-align:center;margin-bottom:8px}
   .brand{height:38px;width:auto;margin-bottom:2px}
   .dark-only{display:none}
@@ -89,8 +89,8 @@
   .chip.active .n{opacity:.85}
   .chip.all.active{background:var(--ink);border-color:var(--ink);color:var(--bg)}
   .tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:var(--card);
-             box-shadow:var(--shadow)}
-  table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:720px}
+             box-shadow:var(--shadow);display:block;width:100%;max-width:100%;}
+  table{border-collapse:collapse;width:max-content;min-width:100%;font-size:13.5px}
   th,td{padding:10px 12px;text-align:center;white-space:nowrap}
   thead th{background:color-mix(in srgb,var(--brand) 12%,var(--card));color:var(--ink);
            font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.4px;
@@ -178,6 +178,7 @@
     color: var(--brand);
     border-bottom-color: var(--brand);
   }
+
   .tbl-stock-in {
     width: 90px;
     padding: 4px 8px;
@@ -326,7 +327,7 @@
     </div>
   </section>
 
-  <section id="tab-order" style="display:none; background:var(--card); padding:24px; border-radius:12px; box-shadow:var(--shadow); margin-top:20px;">
+  <section id="tab-order" style="display:none; max-width:100%; background:var(--card); padding:24px; border-radius:12px; box-shadow:var(--shadow); margin-top:20px;">
     <div class="rhead" style="margin-bottom:20px;">
       <img class="rtile" src="logos_svg/DPZ_2025_Logo_Tile_Blue_RGB.svg" alt="Domino's">
       <h2>Sugestão de Pedido de Compras</h2>
@@ -361,7 +362,7 @@
     </div>
     <div class="filters" id="order-filters" style="margin-bottom:20px;"></div>
     <div class="tablewrap">
-      <table id="otbl" style="width:100%; border-collapse:collapse;">
+      <table id="otbl" style="border-collapse:collapse;">
         <thead id="othead"></thead>
         <tbody id="otbody"></tbody>
       </table>
@@ -1139,17 +1140,17 @@ function renderOrderTab(){
   const othead = document.getElementById('othead');
   let transitHeaders = '';
   transitColumns.forEach((colId, index) => {
-    transitHeaders += `<th style="text-align:right; width:110px; color:var(--brand); position:relative;">Caminhão ${index+1} (cx) <span onclick="removeTransitColumn(${colId})" style="cursor:pointer; color:var(--red); font-size:11px; margin-left:4px;" title="Remover caminhão">❌</span></th>`;
+    transitHeaders += `<th style="text-align:right; min-width:110px; width:110px; color:var(--brand); position:relative;">Caminhão ${index+1} (cx) <span onclick="removeTransitColumn(${colId})" style="cursor:pointer; color:var(--red); font-size:11px; margin-left:4px;" title="Remover caminhão">❌</span></th>`;
   });
   othead.innerHTML = `
     <tr>
-      <th style="text-align:center; width:100px;">Fator MB</th>
-      <th style="text-align:left;">Descrição</th>
-      <th>Unidade</th>
-      <th style="text-align:right; width:120px;">Estoque Atual</th>
+      <th style="text-align:center; min-width:100px; width:100px;">Fator MB</th>
+      <th style="text-align:left; min-width:200px;">Descrição</th>
+      <th style="min-width:60px;">Unidade</th>
+      <th style="text-align:right; min-width:120px; width:120px;">Estoque Atual</th>
       ${transitHeaders}
-      <th style="text-align:right; width:150px;">Estoque na Entrega</th>
-      <th style="text-align:right; width:150px;">Sugestão de Pedido</th>
+      <th style="text-align:right; min-width:150px; width:150px;">Estoque na Entrega</th>
+      <th style="text-align:right; min-width:150px; width:150px;">Sugestão de Pedido</th>
     </tr>
   `;
   
@@ -1214,7 +1215,7 @@ function renderOrderTab(){
     let transitInputsHtml = '';
     transitColumns.forEach(colId => {
       const val = (manualTransit[d.code] && manualTransit[d.code][colId]) !== undefined ? manualTransit[d.code][colId] : '';
-      transitInputsHtml += `<td class="num"><input type="number" class="tbl-transit-in" data-order-transit="${d.code}" data-col-id="${colId}" value="${val}" step="any" min="0" placeholder="0"></td>`;
+      transitInputsHtml += `<td class="num" style="min-width:110px;"><input type="number" class="tbl-transit-in" data-order-transit="${d.code}" data-col-id="${colId}" value="${val}" step="any" min="0" placeholder="0"></td>`;
     });
     
     const deliveryStockText = isCriticalRupture 
@@ -1223,13 +1224,13 @@ function renderOrderTab(){
       
     const sugStyle = suggestionDisplay > 0 ? 'font-weight:700; color:var(--brand);' : 'color:var(--muted); opacity:0.6;';
     tr.innerHTML = 
-      '<td class="num">' + factorInput + '</td>' +
-      '<td class="desc" ' + trCls + '>' + d.desc + '</td>' +
-      '<td>' + d.unit + '</td>' +
-      '<td class="num">' + stockInput + '</td>' +
+      '<td class="num" style="min-width:100px;">' + factorInput + '</td>' +
+      '<td class="desc" style="min-width:200px;" ' + trCls + '>' + d.desc + '</td>' +
+      '<td style="min-width:60px;">' + d.unit + '</td>' +
+      '<td class="num" style="min-width:120px;">' + stockInput + '</td>' +
       transitInputsHtml +
-      '<td class="num">' + deliveryStockText + '</td>' +
-      '<td class="num" style="' + sugStyle + '">' + suggestionDisplay.toLocaleString('pt-BR') + ' cx</td>';
+      '<td class="num" style="min-width:150px;">' + deliveryStockText + '</td>' +
+      '<td class="num" style="min-width:150px; ' + sugStyle + '">' + suggestionDisplay.toLocaleString('pt-BR') + ' cx</td>';
       
     tb.appendChild(tr);
   });
