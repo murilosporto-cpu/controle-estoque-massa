@@ -1628,7 +1628,23 @@ document.getElementById('copy-proj-btn').onclick = () => {
     let estTxt = '';
     if (d.cat.toLowerCase() === 'massas') {
       const estBand = d.stock != null ? d.stock : 0;
-      estTxt = 'Estoque: ' + (d.code === '7DOUGH' || d.code === '8HDOUGH' ? estBand.toFixed(1) : Math.ceil(estBand)) + ' band';
+      let aProduzir = 0;
+      const dv = document.getElementById('prodDate')?.value;
+      if (dv) {
+        const D = new Date(dv + 'T00:00:00');
+        let consU = 0;
+        for (let k = 0; k < DIAS_VALIDADE; k++) {
+          consU += d.med[addDays(D, k).getDay()];
+        }
+        const consBand = consU / (d.factor || 1);
+        let vencBand = 0;
+        (prodState[d.code] || []).forEach(s => {
+          const q = parseFloat(s.qtd);
+          if (q > 0) vencBand += q;
+        });
+        aProduzir = Math.max(0, Math.ceil(consBand - estBand + vencBand));
+      }
+      estTxt = 'Estoque: ' + (d.code === '7DOUGH' || d.code === '8HDOUGH' ? estBand.toFixed(1) : Math.ceil(estBand)) + ' band | A produzir: ' + aProduzir + ' band';
     } else {
       estTxt = 'Estoque: ' + (d.stock != null ? d.stock.toLocaleString('pt-BR') : '0') + ' ' + d.unit;
     }
