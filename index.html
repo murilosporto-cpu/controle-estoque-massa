@@ -228,6 +228,10 @@
 <body>
 <div class="wrap">
   <div class="tabs-nav" style="display:flex; justify-content:center; gap:16px; position:relative;">
+    <div id="store-selector-container" style="position:absolute; left:0; top:4px; display:none; align-items:center; gap:8px;">
+      <span style="font-size:13px; font-weight:600; color:var(--muted);">Loja:</span>
+      <select id="store-select" style="padding:6px 12px; border-radius:12px; border:1px solid var(--line); background:var(--card); color:var(--ink); font-weight:700; cursor:pointer; outline:none; transition:0.15s;"></select>
+    </div>
     <button class="tab-btn active" data-tab="upload">Carregar Relatórios</button>
     <button class="tab-btn" data-tab="results" id="tab-results-btn" style="display:none">Ver Projeção</button>
     <button class="tab-btn" data-tab="order" id="tab-order-btn" style="display:none">Sugestão de Pedido</button>
@@ -388,6 +392,9 @@ let DATA = [];     // linhas da projeção
 let META = {};
 const toNum = v => { const n=parseFloat(v); return isNaN(n)?0:n; };
 
+const storeBuffers = {};
+let activeStoreId = null;
+
 // Estados editáveis ou dinâmicos do usuário
 const manualStock = {};
 const prodCount = {};
@@ -519,12 +526,81 @@ function render(drop, key){
                    '<button class="clear" data-clear="'+key+'">Trocar arquivo</button>';
 }
 
+function getStoreIdFromFileName(name) {
+  const match = name.match(/(\d{4,6})/);
+  return match ? match[1] : 'default';
+}
+
+function updateStoreSelector() {
+  const select = document.getElementById('store-select');
+  const container = document.getElementById('store-selector-container');
+  const storeIds = Object.keys(storeBuffers);
+  
+  if (storeIds.length <= 1) {
+    container.style.display = 'none';
+    return;
+  }
+  
+  select.innerHTML = '';
+  storeIds.forEach(id => {
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = id === 'default' ? 'Outro' : 'Loja ' + id;
+    opt.selected = (id === activeStoreId);
+    select.appendChild(opt);
+  });
+  container.style.display = 'flex';
+}
+
+function changeActiveStore(storeId) {
+  activeStoreId = storeId;
+  const store = storeBuffers[storeId];
+  if (store) {
+    buffers.trend = store.trend;
+    buffers.variance = store.variance;
+    files.trend = store.trendFile;
+    files.variance = store.varianceFile;
+    
+    render(document.querySelector('.drop[data-key="trend"]'), 'trend');
+    render(document.querySelector('.drop[data-key="variance"]'), 'variance');
+    
+    tryRun();
+  }
+}
+
+document.getElementById('store-select').onchange = (e) => changeActiveStore(e.target.value);
+
 function setFile(key, file){
-  files[key]=file;
   const r=new FileReader();
-  r.onload = e=>{ buffers[key]=e.target.result; render(document.querySelector('.drop[data-key="'+key+'"]'),key); tryRun(); };
+  r.onload = e => {
+    const buffer = e.target.result;
+    const storeId = getStoreIdFromFileName(file.name);
+    
+    if (!storeBuffers[storeId]) {
+      storeBuffers[storeId] = { trend: null, variance: null, trendFile: null, varianceFile: null };
+    }
+    
+    if (key === 'trend') {
+      storeBuffers[storeId].trend = buffer;
+      storeBuffers[storeId].trendFile = file;
+    } else {
+      storeBuffers[storeId].variance = buffer;
+      storeBuffers[storeId].varianceFile = file;
+    }
+    
+    activeStoreId = storeId;
+    buffers.trend = storeBuffers[storeId].trend;
+    buffers.variance = storeBuffers[storeId].variance;
+    files.trend = storeBuffers[storeId].trendFile;
+    files.variance = storeBuffers[storeId].varianceFile;
+    
+    render(document.querySelector('.drop[data-key="trend"]'), 'trend');
+    render(document.querySelector('.drop[data-key="variance"]'), 'variance');
+    
+    updateStoreSelector();
+    tryRun();
+  };
   r.readAsArrayBuffer(file);
-  render(document.querySelector('.drop[data-key="'+key+'"]'),key);
 }
 
 document.querySelectorAll('.drop[data-key]').forEach(drop=>{
@@ -538,10 +614,36 @@ document.querySelectorAll('.drop[data-key]').forEach(drop=>{
 });
 document.addEventListener('click', e=>{
   const k=e.target.dataset.clear;
-  if(k){ e.stopPropagation(); files[k]=null; buffers[k]=null;
+  if(k){ e.stopPropagation(); 
+    files[k]=null; buffers[k]=null;
+    if (activeStoreId && storeBuffers[activeStoreId]) {
+      if (k === 'trend') {
+        storeBuffers[activeStoreId].trend = null;
+        storeBuffers[activeStoreId].trendFile = null;
+      } else {
+        storeBuffers[activeStoreId].variance = null;
+        storeBuffers[activeStoreId].varianceFile = null;
+      }
+      if (!storeBuffers[activeStoreId].trend && !storeBuffers[activeStoreId].variance) {
+        delete storeBuffers[activeStoreId];
+        const remaining = Object.keys(storeBuffers);
+        activeStoreId = remaining.length ? remaining[0] : null;
+        if (activeStoreId) {
+          changeActiveStore(activeStoreId);
+        } else {
+          buffers.trend = null; buffers.variance = null;
+          files.trend = null; files.variance = null;
+          render(document.querySelector('.drop[data-key="trend"]'), 'trend');
+          render(document.querySelector('.drop[data-key="variance"]'), 'variance');
+        }
+      }
+    }
+    
     document.querySelector('input[data-input="'+k+'"]').value='';
     render(document.querySelector('.drop[data-key="'+k+'"]'),k);
-    if(k==='trend'){
+    updateStoreSelector();
+    
+    if(k==='trend' && !buffers.trend){
       document.getElementById('results').style.display='none';
       document.getElementById('tab-results-btn').style.display='none';
       document.getElementById('tab-order-btn').style.display='none';
