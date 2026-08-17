@@ -979,7 +979,7 @@ function renderTable(){
     } else if (BANDEJA[d.code]) {
       estVal = Math.ceil(d.stock);
     }
-    const valAttr = d.badStock ? '' : (estVal != null ? estVal : '');
+    const valAttr = d.badStock || estVal === 0 ? '' : (estVal != null ? estVal : '');
     const est = d.badStock ? '<span class="days r" title="valor não numérico no relatório: '+d.rawEnd+'">⚠ inválido</span>'
                            : '<input type="number" class="tbl-stock-in" data-tbl-stock="'+d.code+'" value="'+valAttr+'" step="any" min="0" placeholder="0">';
 
@@ -1052,8 +1052,8 @@ function buildProdSkeleton(){
   const wrap=document.getElementById('prodRows'); wrap.innerHTML='';
   massRows().forEach(m=>{
     if(prodCount[m.code]===undefined) prodCount[m.code] = (prodState[m.code]||[]).length;
-    const sv = (manualStock[m.code]!==undefined) ? manualStock[m.code]
-             : (m.stock!=null && !m.badStock ? m.stock : '');
+    const sv = (manualStock[m.code]!==undefined) ? (manualStock[m.code]==0 ? '' : manualStock[m.code])
+             : (m.stock!=null && !m.badStock && m.stock!==0 ? m.stock : '');
     const origem = m.stock==null ? 'digite o estoque final'
                  : m.badStock ? 'relatório inválido ("'+m.rawEnd+'") — digite'
                  : 'do Variance (editável)';
@@ -1338,7 +1338,8 @@ function renderOrderTab(){
     const tr = document.createElement('tr');
     const trCls = isCriticalRupture ? 'style="background:var(--red-bg)"' : '';
     const factorInput = '<input type="number" class="tbl-factor-in" data-order-factor="'+d.code+'" value="'+factor+'" step="any" min="0.01">';
-    const stockInput = '<input type="number" class="tbl-stock-in" data-order-stock="'+d.code+'" value="'+currentStockDisplay+'" step="any" min="0">';
+    const stockVal = currentStockDisplay === 0 ? '' : currentStockDisplay;
+    const stockInput = '<input type="number" class="tbl-stock-in" data-order-stock="'+d.code+'" value="'+stockVal+'" placeholder="0" step="any" min="0">';
     
     let transitInputsHtml = '';
     transitColumns.forEach(colId => {
