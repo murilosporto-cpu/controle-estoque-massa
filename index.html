@@ -1036,7 +1036,10 @@ function saveVencState(){
 
 function buildProdSkeleton(){
   const dInput=document.getElementById('prodDate');
-  if(!dInput.value && META.dataBase) dInput.value = META.dataBase.toISOString().slice(0,10);
+  if(!dInput.value) {
+    const todayStr = new Date(new Date().getTime() - new Date().getTimezoneOffset()*60000).toISOString().slice(0, 10);
+    dInput.value = todayStr;
+  }
   const wrap=document.getElementById('prodRows'); wrap.innerHTML='';
   massRows().forEach(m=>{
     if(prodCount[m.code]===undefined) prodCount[m.code] = (prodState[m.code]||[]).length;
