@@ -736,16 +736,13 @@ async function tryRun(){
   }
 }
 
-function getBaseDateFor(code, defaultDate) {
-  if (manualStock[code] !== undefined && manualStock[code] !== '') {
-    const dInput = document.getElementById('prodDate');
-    if (dInput && dInput.value) {
-      const parts = dInput.value.split('-');
-      if (parts.length === 3) return new Date(+parts[0], +parts[1]-1, +parts[2]);
-    }
-    const h = new Date(); return new Date(h.getFullYear(), h.getMonth(), h.getDate());
+function getBaseDateFor() {
+  const dInput = document.getElementById('prodDate');
+  if (dInput && dInput.value) {
+    const parts = dInput.value.split('-');
+    if (parts.length === 3) return new Date(+parts[0], +parts[1]-1, +parts[2]);
   }
-  return defaultDate;
+  const h = new Date(); return new Date(h.getFullYear(), h.getMonth(), h.getDate());
 }
 
 function calcularDiasEstoque(stock, med, dataBase){
@@ -846,7 +843,7 @@ function run(){
       const badStock = rawEnd!=null && String(rawEnd).trim()!=='' && !isFinite(parseFloat(String(rawEnd).replace(',','.')));
       let u = unit[code]!=null?unit[code]:'';
       const med=media[code];
-      const res = calcularDiasEstoque(est, med, getBaseDateFor(code, dataBase));
+      const res = calcularDiasEstoque(est, med, getBaseDateFor());
       const fator=BANDEJA[code]; let estEx=est, unidEx=u;
       if(fator){
         estEx=est/fator;
@@ -870,7 +867,7 @@ function run(){
       const est = (manualStock[code] !== undefined && manualStock[code] !== '') ? parseFloat(manualStock[code]) * (BANDEJA[code] || 1) : 0;
       let u = unit[code] || '';
       const med=media[code];
-      const res = calcularDiasEstoque(est, med, getBaseDateFor(code, dataBase));
+      const res = calcularDiasEstoque(est, med, getBaseDateFor());
       const fator=BANDEJA[code]; let estEx=est, unidEx=u;
       if(fator){
         estEx=est/fator;
@@ -1142,7 +1139,7 @@ document.getElementById('prodRows').addEventListener('input', e=>{
     if(item){
       item.stock = val;
       item.estU = val * (item.factor || 1);
-      const res = calcularDiasEstoque(item.estU, item.med, getBaseDateFor(item.code, META.dataBase));
+      const res = calcularDiasEstoque(item.estU, item.med, getBaseDateFor());
       item.days = res.dias;
       item.date = res.dfim;
       item.wd = res.wdfim;
@@ -1162,7 +1159,7 @@ document.getElementById('tbody').addEventListener('input', e=>{
     if(item){
       item.stock = val;
       item.estU = val * (item.factor || 1);
-      const res = calcularDiasEstoque(item.estU, item.med, getBaseDateFor(item.code, META.dataBase));
+      const res = calcularDiasEstoque(item.estU, item.med, getBaseDateFor());
       item.days = res.dias;
       item.date = res.dfim;
       item.wd = res.wdfim;
@@ -1393,7 +1390,7 @@ document.getElementById('otbody').addEventListener('input', e => {
         const val = e.target.value !== '' ? parseFloat(e.target.value) : 0;
         item.stock = val;
         item.estU = val * (item.factor || 1);
-        const res = calcularDiasEstoque(item.estU, item.med, getBaseDateFor(item.code, META.dataBase));
+        const res = calcularDiasEstoque(item.estU, item.med, getBaseDateFor());
         item.days = res.dias;
         item.date = res.dfim;
         item.wd = res.wdfim;
@@ -1609,7 +1606,7 @@ function handleTransitFile(file) {
 function recalculateAll(){
   DATA.forEach(item => {
     if (item.med) {
-      const res = calcularDiasEstoque(item.estU, item.med, getBaseDateFor(item.code, META.dataBase));
+      const res = calcularDiasEstoque(item.estU, item.med, getBaseDateFor());
       item.days = res.dias;
       item.date = res.dfim;
       item.wd = res.wdfim;
